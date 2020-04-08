@@ -5,5 +5,5 @@
 #
 # =============================================================================
 """fern toolkit"""
-from utils import data
+from utils import data, model
 
