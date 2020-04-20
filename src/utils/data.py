@@ -147,7 +147,7 @@ class DataCleaner(BaseDataTool):
             u'*·,.!?[]()%#@&1234567890.;-:￭ abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
         }
 
-    def clean(self, data, update_data=True, input_col='data', output_col='label'):
+    def clean(self, data, update_data=True, input_col='data', output_col='label', idx_col=None):
         """
         clean data main entry
 
@@ -156,38 +156,53 @@ class DataCleaner(BaseDataTool):
         data : pd.DataFrame
             source data frame
         update_data : bool
-            update self.data
+            To save the cleaned data to self.data. The default is True.
         input_col : str
             The column name of the input data
         output_col : str
             The column name of the output label
+        idx_col : str, optional
+            The index column name for source data. If not provided, the output columns will not contain index column.
 
         Returns
         -------
         pd.DataFrame
             cleaned data
         """
-        for col in ['SVC_PSTL_CD', 'CUST_Address1', 'CUST_Address2', 'CUST_Address_line3']:
-            if col not in data.columns:
-                LOGGER.error(f'{col} should be in source data.columns')
-                raise
         data[input_col] = data.apply(self.clean_func, axis=1)
         LOGGER.debug('All raw data has been cleaned.')
-
         data[input_col] = data[input_col].map(self.str2word)
         LOGGER.debug('All cleaned data has been split into word list.')
 
-        data = data.dropna().reset_index(drop=True)
-        data[output_col] = data['SVC_PSTL_CD']
+        data[output_col] = data.apply(self.clean_label, axis=1)
+        LOGGER.debug('All label data has been cleaned.')
 
-        data = data[['SVC_DSPCH_ID', input_col, output_col]]
+        columns = [idx_col, input_col, output_col] if idx_col is not None else [input_col, output_col]
+        data = data[columns]
+        data = data.dropna().reset_index(drop=True)
         if update_data:
             self.data = data
         return data
 
+    def clean_label(self, items):
+        """
+        clean label function
+
+        Parameters
+        ----------
+        items : pd.Series
+            find source label data
+
+        Returns
+        -------
+        str, int
+            cleaned label
+        """
+        raise NotImplementedError
+
     def clean_func(self, items):
         """
-        convert log
+        convert input data
 
         Parameters
         ----------
@@ -199,22 +214,7 @@ class DataCleaner(BaseDataTool):
         str
             cleaned log
         """
-        addrs = [items['CUST_Address1'], items['CUST_Address2'], items['CUST_Address_line3']]
-        postcode = str(items['SVC_PSTL_CD'])
-        res = []
-        for addr in addrs:
-            addr = addr.strip()
-            if postcode in addr:
-                addr = re.sub(f'[\s\-:,.]*{postcode}[\s\-:,.]*', ' ', addr)
-            if addr == '':
-                continue
-            res.append(addr)
-        res = ','.join(res)
-        res = res.lower()
-        res = res.translate(self.table)
-        res = re.sub('\s+', ' ', res)
-        res = re.sub('\s*,+\s*', ',', res)
-        return res
+        raise NotImplementedError
 
     def str2word(self, addr):
         """
@@ -247,17 +247,17 @@ class DataTransformer(BaseDataTool):
     """转换数据为神经网络输入格式"""
     PREFIX = [
         '<PAD>',    # 占位符
-        # '<ST>',     # 开始字符
-        # '<ED>'      # 终止字符
+        '<ST>',     # 开始字符
+        '<ED>'      # 终止字符
     ]
 
     def __init__(self,
                  word_path,
+                 output_shape,
                  min_len=5,
                  max_len=25,
-                 max_freq=3,
+                 min_freq=3,
                  data=None,
-                 output_shape=None,
                  input_col='data',
                  output_col='label',
                  filter_data=True):
@@ -266,24 +266,25 @@ class DataTransformer(BaseDataTool):
 
         Parameters
         ----------
-        data : pd.DataFrame, optional
-            The data frame where the address data is stored. If data no word library built, data should be provided.
         word_path : str
-            Word library path
-        max_freq : int
-            The biggest word frequency
-        min_len : int
-            Minimum sentence length
-        max_len : int
-            Maximum sentence length
+            Path to word library
         output_shape : list[int]
-            output shape of label
+            output shape of label for transforming label
+        min_len : int
+            Minimum permissible sentence length for filtering training data
+        max_len : int
+            Maximum permissible sentence length for filtering training data and sequence padding
+        min_freq : int
+            Minimum permissible word frequency for making word library
+        data : pd.DataFrame, optional
+            The cleaned data frame only to make word library
+            If the word library doesn't exit, you may not provide the data
         input_col : str
             The column name of the input data
         output_col : str
             The column name of the output label
         filter_data : bool
-            Whether to delete the non-conforming data
+            Whether to delete the input data which the sentence length is greater than max_len or less than min_len
         """
         super().__init__()
         self.input_col = input_col
@@ -291,7 +292,7 @@ class DataTransformer(BaseDataTool):
         self.output_shape = output_shape
         self.min_len = min_len
         self.max_len = max_len
-        self.max_freq = max_freq
+        self.max_freq = min_freq
         self.word_path = word_path
 
         self.word2id = self.read_word2id(data)
@@ -307,11 +308,11 @@ class DataTransformer(BaseDataTool):
             The data frame where the address data is stored
 
         update_data : bool
-            Whether to update self.data or not
+            To save the cleaned data to self.data. The default is True.
 
         Returns
         -------
-        np.ndarray
+        tuple[np.ndarray]
             The transformed word id sequence
         """
         if self.filter_data:
@@ -325,14 +326,14 @@ class DataTransformer(BaseDataTool):
 
         if update_data:
             self.data = {
-                'data': data,
-                'label': label
+                self.input_col: data,
+                self.output_col: label
             }
         return data, label
 
     def transform_data(self, data):
         """
-        transform func
+        data transforming function
 
         Parameters
         ----------
@@ -345,12 +346,12 @@ class DataTransformer(BaseDataTool):
             The transformed word id sequence
         """
         data = [self.word2id[word] for word in data if word in self.word2id]
-        data = pad_sequences([data], maxlen=self.max_len, padding='post')
+        data = pad_sequences([data], maxlen=self.max_len, padding='post')       # pad after each sequence
         return data
 
     def transform_label(self, label):
         """
-        transform func
+        label transforming function
 
         Parameters
         ----------
@@ -362,11 +363,7 @@ class DataTransformer(BaseDataTool):
         np.ndarray
             The transformed one-hot label
         """
-        res = np.zeros([1] + self.output_shape, np.float32)
-        for i in range(len(str(label))):
-            number = int(str(label)[i])
-            res[:, i, number] = 1.0
-        return res
+        raise NotImplementedError
 
     def read_word2id(self, data=None):
         """
@@ -404,7 +401,15 @@ class DataTransformer(BaseDataTool):
         -------
         list[str]
             word library
+
+        Raises
+        ------
+        ValueError
+            If no data provide, TypeError will be raised
         """
+        if data is None:
+            raise ValueError('No data is provided.')
+
         words = []
         _ = data[self.input_col].map(words.extend)
         words = pd.Series(words).value_counts()
@@ -482,7 +487,7 @@ class DataSplitter(BaseDataTool):
         super().__init__()
         self.test_rate = test_rate
 
-    def split(self, data):
+    def split(self, data, input_col='data', output_col='label'):
         """
         split function to split data
 
@@ -490,22 +495,31 @@ class DataSplitter(BaseDataTool):
         ----------
         data : dict[str, np.ndarray]
             'data' and 'label' should be keys of the data
+        input_col : str
+            The data key name of the data dictionary
+        output_col : str
+            The label key name of the data dictionary
+
+        Raises
+        ------
+        AssertionError
+            If the data.shape[0] != label.shape[0]
         """
-        data, label = data['data'], data['label']
+        data, label = data[input_col], data[output_col]
         assert len(data) == len(label)
 
         indexes = np.random.permutation(data.shape[0])
         i = int(data.shape[0] * self.test_rate)
-        indexes_train, indexes_test = indexes[:i], indexes[i:]
+        indexes_test, indexes_train = indexes[:i], indexes[i:]
 
         data_train, data_test = data[indexes_train], data[indexes_test]
         label_train, label_test = label[indexes_train], label[indexes_test]
 
         self.data = {
-            'data_train': data_train,
-            'data_test': data_test,
-            'label_train': label_train,
-            'label_test': label_test
+            f'{input_col}_train': data_train,
+            f'{input_col}_test': data_test,
+            f'{output_col}_train': label_train,
+            f'{output_col}_test': label_test
         }
 
     def save(self, path):
@@ -516,11 +530,16 @@ class DataSplitter(BaseDataTool):
         ----------
         path : str, Path
             path where data save
+
+        Raises
+        ------
+        KeyError
+            You should get source data before save
         """
         self.check_path(path)
         if self.data is None:
             LOGGER.error('You should get source data before save')
-            raise
+            raise KeyError('You should get source data before save')
         np.savez(path, **self.data)
 
     def load(self, path):
