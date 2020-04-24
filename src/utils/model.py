@@ -11,23 +11,27 @@ from config import LOGGER
 
 
 class ModelBase(object):
-    def __init__(self, output_shape, max_seq_len, library_len):
-        """
-        model builder
+    """
+    model builder
 
-        Parameters
-        ----------
-        output_shape : list[int]
-            output shape
-        max_seq_len : int
-            the max input sequence length
-        library_len : int
-            the world library length
-        """
+    Parameters
+    ----------
+    output_shape : list[int], tuple[int]
+        output shape
+    max_seq_len : int
+        the max input sequence length
+    library_len : int
+        the world library length
+    initializer : str
+        global initializer
+    """
+    def __init__(self, output_shape, max_seq_len, library_len, initializer='he_normal'):
         self.output_shape = output_shape
         self.max_seq_len = max_seq_len
         self.library_len = library_len
+        self.initializer = initializer
         self.name = self.__class__.__name__
+
         self.model = self.build()
         self.print_summary()
 
@@ -42,11 +46,11 @@ class ModelBase(object):
 
     def build(self):
         """
-        build model and return
+        build model
 
         Returns
         -------
         Model
-            the model built
+            built model
         """
         raise NotImplementedError
