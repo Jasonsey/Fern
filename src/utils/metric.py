@@ -9,7 +9,7 @@ import tensorflow as tf
 from tensorflow.keras.metrics import Metric
 
 
-class BinaryCategoricalAccuarcy(Metric):
+class BinaryCategoricalAccuracy(Metric):
     """
     To calculate the accuracy of the m outputs, when the output is multi-output matrix with shape (None, m, n)
 

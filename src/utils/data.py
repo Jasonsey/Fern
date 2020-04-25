@@ -482,10 +482,10 @@ class DataTransformer(BaseDataTool):
 
 
 class DataSplitter(BaseDataTool):
-    """split data into train data and test data"""
-    def __init__(self, test_rate):
+    """split data into train data and val data"""
+    def __init__(self, rate_val):
         super().__init__()
-        self.test_rate = test_rate
+        self.rate_val = rate_val
 
     def split(self, data, input_col='data', output_col='label'):
         """
@@ -509,17 +509,17 @@ class DataSplitter(BaseDataTool):
         assert len(data) == len(label)
 
         indexes = np.random.permutation(data.shape[0])
-        i = int(data.shape[0] * self.test_rate)
-        indexes_test, indexes_train = indexes[:i], indexes[i:]
+        i = int(data.shape[0] * self.rate_val)
+        indexes_val, indexes_train = indexes[:i], indexes[i:]
 
-        data_train, data_test = data[indexes_train], data[indexes_test]
-        label_train, label_test = label[indexes_train], label[indexes_test]
+        data_train, data_val = data[indexes_train], data[indexes_val]
+        label_train, label_val = label[indexes_train], label[indexes_val]
 
         self.data = {
             f'{input_col}_train': data_train,
-            f'{input_col}_test': data_test,
+            f'{input_col}_val': data_val,
             f'{output_col}_train': label_train,
-            f'{output_col}_test': label_test
+            f'{output_col}_val': label_val
         }
 
     def save(self, path):

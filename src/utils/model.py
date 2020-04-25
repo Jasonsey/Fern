@@ -5,6 +5,9 @@
 #
 # =============================================================================
 """"model file"""
+from pathlib import Path
+
+import tensorflow as tf
 from tensorflow.keras import Model
 
 from config import LOGGER
@@ -54,3 +57,32 @@ class ModelBase(object):
             built model
         """
         raise NotImplementedError
+
+    def save(self, path):
+        """
+        save model
+
+        Parameters
+        ----------
+        path : str, Path
+            The model file path
+        """
+        self.model.save(path)
+
+    def load(self, path):
+        """
+        load model
+
+        Parameters
+        ----------
+        path : str, Path
+            The model file path
+        """
+        self.model = tf.keras.models.load_model(path)
+
+    def __call__(self, *args, **kwargs):
+        return self.model(*args, **kwargs)
+
+    @property
+    def trainable_variables(self):
+        return self.model.trainable_weight
