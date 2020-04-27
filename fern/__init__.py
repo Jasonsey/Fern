@@ -1,7 +1,7 @@
 # Fern
 #
-# Author: Jasonsey
-# Email: 2627866800@qq.com
+# Author: Jason Lin
+# Email: jason.m.lin@outlook.com
 #
 # =============================================================================
 """fern toolkit"""

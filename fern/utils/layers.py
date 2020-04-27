@@ -1,7 +1,7 @@
-# Address Recognition
+# Fern
 #
-# Author: Max, Lin
-# Email: max_lin1@dell.com
+# Author: Jason Lin
+# Email: jason.m.lin@outlook.com
 #
 # =============================================================================
 """layer model"""
