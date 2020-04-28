@@ -15,7 +15,7 @@ with open('requirements.txt', 'r') as f:
     INSTALL_REQUIRES = [line.strip() for line in f if line.strip()]
 
 setuptools.setup(
-    name='Fern',
+    name='Fern2',
     version='0.0.1',
     author='Jason, Lin',
     author_email='jason.m.lin@outlook.com',
