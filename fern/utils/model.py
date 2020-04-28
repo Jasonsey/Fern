@@ -1,16 +1,14 @@
 # Fern
 #
-# Author: Jasonsey
-# Email: 2627866800@qq.com
+# Author: Jason Lin
+# Email: jason.m.lin@outlook.com
 #
 # =============================================================================
 """"model file"""
-from pathlib import Path
-
 import tensorflow as tf
 from tensorflow.keras import Model
 
-from config import LOGGER
+from fern.config import LOGGER
 
 
 class ModelBase(object):
@@ -64,7 +62,7 @@ class ModelBase(object):
 
         Parameters
         ----------
-        path : str, Path
+        path : str, pathlib.Path
             The model file path
         """
         self.model.save(path)
@@ -75,7 +73,7 @@ class ModelBase(object):
 
         Parameters
         ----------
-        path : str, Path
+        path : str, pathlib.Path
             The model file path
         """
         self.model = tf.keras.models.load_model(path)
