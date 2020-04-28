@@ -8,7 +8,7 @@
 import tensorflow as tf
 from tensorflow.keras import Model
 
-from config import LOGGER
+from fern.config import LOGGER
 
 
 class ModelBase(object):

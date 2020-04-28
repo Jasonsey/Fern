@@ -11,9 +11,9 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.metrics import Metric
 
-from config import LOGGER
-from utils.common import ProgressBar
-from utils.model import ModelBase
+from fern.config import LOGGER
+from .common import ProgressBar
+from .model import ModelBase
 
 
 class TrainerBase(object):

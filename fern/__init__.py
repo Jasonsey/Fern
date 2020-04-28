@@ -4,6 +4,5 @@
 # Email: jason.m.lin@outlook.com
 #
 # =============================================================================
-"""fern toolkit"""
-from utils import data, model, train
-
+"""NLP text processing toolkit"""
+from fern.utils import common, data, layers, metrics, model, train

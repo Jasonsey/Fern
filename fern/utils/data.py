@@ -17,7 +17,7 @@ from pathlib import Path
 from nltk.tokenize import MWETokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-from config import LOGGER
+from fern.config import LOGGER
 
 
 class BaseDataTool(object):
