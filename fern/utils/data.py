@@ -90,25 +90,24 @@ class BaseDataTool(object):
         """
         path = Path(path).parent
         if not path.exists():
-            LOGGER.info(f'{path} does not exit. Creat it.')
+            LOGGER.warn(f'{path} does not exit. Creat it.')
             path.mkdir(parents=True)
 
 
-class DataDownloader(BaseDataTool):
-    """data downloader"""
-    def __init__(self, host, user, password):
-        """
-        data loader
+class BaseDownloader(BaseDataTool):
+    """
+    data downloader
 
-        Parameters
-        ----------
-        host : str
+    Parameters
+    ----------
+    host : str
             sql server host
-        user : str
-            user name
-        password : str
-            user password
-        """
+    user : str
+        user name
+    password : str
+        user password
+    """
+    def __init__(self, host, user, password):
         super().__init__()
         self.host = host
         self.user = user
@@ -121,19 +120,18 @@ class DataDownloader(BaseDataTool):
         conn.close()
 
 
-class DataCleaner(BaseDataTool):
-    """data cleaner"""
-    def __init__(self, stop_words=None, user_words=None):
-        """
-        data cleaner
+class BaseCleaner(BaseDataTool):
+    """
+    data cleaner
 
-        Parameters
-        ----------
-        user_words : str, Path, optional
-            user words path
-        stop_words : str, Path, optional
-            stop words path
-        """
+    Parameters
+    ----------
+    user_words : str, Path, optional
+        user words path
+    stop_words : str, Path, optional
+        stop words path
+    """
+    def __init__(self, stop_words=None, user_words=None):
         super().__init__()
         self.stop_words = self.read_words(stop_words)
 
@@ -169,7 +167,7 @@ class DataCleaner(BaseDataTool):
         pd.DataFrame
             cleaned data
         """
-        data[input_col] = data.apply(self.clean_func, axis=1)
+        data[input_col] = data.apply(self.clean_data, axis=1)
         LOGGER.debug('All raw data has been cleaned.')
         data[input_col] = data[input_col].map(self.str2word)
         LOGGER.debug('All cleaned data has been split into word list.')
@@ -184,13 +182,13 @@ class DataCleaner(BaseDataTool):
             self.data = data
         return data
 
-    def clean_label(self, items):
+    def clean_label(self, row):
         """
-        clean label function
+        clean label function for pandas apply function
 
         Parameters
         ----------
-        items : pd.Series
+        row : pd.Series
             find source label data
 
         Returns
@@ -200,14 +198,14 @@ class DataCleaner(BaseDataTool):
         """
         raise NotImplementedError
 
-    def clean_func(self, items):
+    def clean_data(self, row):
         """
-        convert input data
+        convert input data function for pandas apply function
 
         Parameters
         ----------
-        items : pd.Series
-            one log
+        row : pd.Series
+            the input data row
 
         Returns
         -------
@@ -216,21 +214,21 @@ class DataCleaner(BaseDataTool):
         """
         raise NotImplementedError
 
-    def str2word(self, addr):
+    def str2word(self, string):
         """
-        split a log into word list
+        split a string data into word list
 
         Parameters
         ----------
-        addr : str
-            address data
+        string : str
+            the cleaned data
 
         Returns
         -------
         list[str]
             cleaned word list
         """
-        data = nltk.word_tokenize(addr)
+        data = nltk.word_tokenize(string)
         data = self.tokenizer.tokenize(data)
         words = []
         for da in data:
@@ -243,8 +241,32 @@ class DataCleaner(BaseDataTool):
         return words
 
 
-class DataTransformer(BaseDataTool):
-    """转换数据为神经网络输入格式"""
+class BaseTransformer(BaseDataTool):
+    """
+    Data transformer to convert data to neural network input format
+
+    Parameters
+    ----------
+    word_path : str
+        Path to word library
+    output_shape : list[int]
+        output shape of label for transforming label
+    min_len : int
+        Minimum permissible sentence length for filtering training data
+    max_len : int
+        Maximum permissible sentence length for filtering training data and sequence padding
+    min_freq : int
+        Minimum permissible word frequency for making word library
+    data : pd.DataFrame, optional
+        The cleaned data frame only to make word library
+        If the word library doesn't exit, you may not provide the data
+    input_col : str
+        The column name of the input data
+    output_col : str
+        The column name of the output label
+    filter_data : bool
+        Whether to delete the input data which the sentence length is greater than max_len or less than min_len
+    """
     PREFIX = [
         '<PAD>',    # 占位符
         '<ST>',     # 开始字符
@@ -261,31 +283,6 @@ class DataTransformer(BaseDataTool):
                  input_col='data',
                  output_col='label',
                  filter_data=True):
-        """
-        data transformer
-
-        Parameters
-        ----------
-        word_path : str
-            Path to word library
-        output_shape : list[int]
-            output shape of label for transforming label
-        min_len : int
-            Minimum permissible sentence length for filtering training data
-        max_len : int
-            Maximum permissible sentence length for filtering training data and sequence padding
-        min_freq : int
-            Minimum permissible word frequency for making word library
-        data : pd.DataFrame, optional
-            The cleaned data frame only to make word library
-            If the word library doesn't exit, you may not provide the data
-        input_col : str
-            The column name of the input data
-        output_col : str
-            The column name of the output label
-        filter_data : bool
-            Whether to delete the input data which the sentence length is greater than max_len or less than min_len
-        """
         super().__init__()
         self.input_col = input_col
         self.output_col = output_col
@@ -305,7 +302,7 @@ class DataTransformer(BaseDataTool):
         Parameters
         ----------
         data : pd.DataFrame
-            The data frame where the address data is stored
+            The data frame where the cleaned data is stored
 
         update_data : bool
             To save the cleaned data to self.data. The default is True.
@@ -333,12 +330,12 @@ class DataTransformer(BaseDataTool):
 
     def transform_data(self, data):
         """
-        data transforming function
+        data transforming function for pandas map function
 
         Parameters
         ----------
         data : list[str]
-            A single sequence of address words
+            A single sequence of words
 
         Returns
         -------
@@ -351,17 +348,17 @@ class DataTransformer(BaseDataTool):
 
     def transform_label(self, label):
         """
-        label transforming function
+        label transforming function for pandas map function
 
         Parameters
         ----------
         label : np.int64
-            A six-digit long integer
+            to be transform source label data
 
         Returns
         -------
         np.ndarray
-            The transformed one-hot label
+            The transformed label with shape (1, m, n, ..)
         """
         raise NotImplementedError
 
@@ -372,7 +369,7 @@ class DataTransformer(BaseDataTool):
         Parameters
         ----------
         data : pd.DataFrame, optional
-            The data frame where the address data is stored. If no word library built, data should be provided.
+            The data frame where the cleaned data is stored. If no word library built, data should be provided.
 
         Returns
         ----------
@@ -395,7 +392,7 @@ class DataTransformer(BaseDataTool):
         Parameters
         -------
         data : pd.DataFrame
-            The data frame where the address data is stored.
+            The data frame where the source data is stored.
 
         Returns
         -------
@@ -429,7 +426,7 @@ class DataTransformer(BaseDataTool):
         Parameters
         -------
         data : pd.DataFrame
-            The data frame where the address data is stored.
+            The data frame where the cleaned data is stored.
 
         Returns
         -------
@@ -481,7 +478,7 @@ class DataTransformer(BaseDataTool):
         self.data = dict(np.load(path))
 
 
-class DataSplitter(BaseDataTool):
+class BaseSplitter(BaseDataTool):
     """split data into train data and val data"""
     def __init__(self, rate_val):
         super().__init__()
@@ -533,13 +530,13 @@ class DataSplitter(BaseDataTool):
 
         Raises
         ------
-        KeyError
+        ValueError
             You should get source data before save
         """
         self.check_path(path)
         if self.data is None:
             LOGGER.error('You should get source data before save')
-            raise KeyError('You should get source data before save')
+            raise ValueError('You should get source data before save')
         np.savez(path, **self.data)
 
     def load(self, path):
