@@ -13,16 +13,16 @@ from tensorflow.keras.metrics import Metric
 
 from fern.config import LOGGER
 from .common import ProgressBar
-from .model import ModelBase
+from .model import BaseModel
 
 
-class TrainerBase(object):
+class BaseTrainer(object):
     """
     model trainer
 
     Parameters
     ----------
-    model : ModelBase
+    model : BaseModel
         the model to be trained
     path_data : str, Path
         Points to training data in npz format
@@ -33,7 +33,6 @@ class TrainerBase(object):
     batch_size : int
         batch size
     """
-
     def __init__(self, model, path_data, opt='adam', lr=0.003, batch_size=64):
         self.model = model
         self.optimizer = tf.keras.optimizers.get({
@@ -67,7 +66,7 @@ class TrainerBase(object):
             (best_score, best_epoch)
         """
         if mode == 'server':
-            dataset = self.data['dataset']
+            dataset = self.data['dataset_total']
             total = self.data['step_total']
         else:
             dataset = self.data['dataset_train']
@@ -85,9 +84,11 @@ class TrainerBase(object):
 
             for data_train, label_train in ProgressBar(dataset, desc='Train: ', total=total):
                 self.train_step(data_train, label_train)
+                break
 
             for data_val, label_val in ProgressBar(self.data['dataset_val'], desc='Val: ', total=self.data['step_val']):
                 self.val_step(data_val, label_val)
+                break
 
             stop_flag = False
             if early_stop is None:
@@ -104,7 +105,7 @@ class TrainerBase(object):
                     number = 0
                 elif number == early_stop:
                     stop_flag = True
-                log = [f'Epoch: {epoch}, Early Stop: {number}/{early_stop}({stop_flag})']
+                log = [f"Epoch: {epoch}, Early Stop: {number}/{early_stop}({'Yes' if stop_flag else 'No'})"]
 
             for stage in self.metrics:
                 log_line = [f'{stage}: ']
@@ -112,8 +113,10 @@ class TrainerBase(object):
                     result = self.metrics[stage][metric].result()
                     log_line.append(f'{metric}: {result}')
                 log_line = '\t'.join(log_line)
+                log.append(log_line)
             log = '\n\t'.join(log)
-            LOGGER.info(log)
+            log += '\n'
+            LOGGER.warn(log)
 
             if stop_flag:
                 break
@@ -301,8 +304,8 @@ class TrainerBase(object):
         step_total = int(np.ceil(len(label) / batch_size))
 
         data = {
-            'dataset_train': data_train,
-            'dataset_val': data_val,
+            'dataset_train': dataset_train,
+            'dataset_val': dataset_val,
             'dataset_total': dataset_total,
             'step_train': step_train,
             'step_val': step_val,

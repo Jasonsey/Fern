@@ -11,14 +11,14 @@ from tensorflow.keras import Model
 from fern.config import LOGGER
 
 
-class ModelBase(object):
+class BaseModel(object):
     """
     model builder
 
     Parameters
     ----------
     output_shape : list[int], tuple[int]
-        output shape
+        output shape without batch size
     max_seq_len : int
         the max input sequence length
     library_len : int
@@ -43,7 +43,7 @@ class ModelBase(object):
         summary = []
         self.model.summary(print_fn=summary.append)
         summary = '\n'.join(summary)
-        LOGGER.info(f"\n{summary}")
+        LOGGER.warn(f"\n{summary}")
 
     def build(self):
         """
@@ -83,4 +83,4 @@ class ModelBase(object):
 
     @property
     def trainable_variables(self):
-        return self.model.trainable_weight
+        return self.model.trainable_variables

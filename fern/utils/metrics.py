@@ -22,6 +22,7 @@ class BinaryCategoricalAccuracy(Metric):
         super().__init__(name=name, **kwargs)
         self.count = self.add_weight('count', initializer='zeros')
         self.values = self.add_weight('values', shape=(m, ), initializer='zeros')
+        self.m = m
 
     def update_state(self, y_true, y_pred):
         """
@@ -43,6 +44,10 @@ class BinaryCategoricalAccuracy(Metric):
 
         self.values.assign_add(value)
         self.count.assign_add(y_true.shape[0])
+    
+    def reset_states(self):
+        self.count.assign(0)
+        self.values.assign([0] * self.m)
 
     def result(self):
         """
