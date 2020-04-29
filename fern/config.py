@@ -5,7 +5,7 @@
 #
 # =============================================================================
 """config"""
-import logging
+from .utils.logging import Logging
 
 
-LOGGER = logging.getLogger('Fern')
+LOGGER = Logging('Fern')
