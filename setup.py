@@ -16,7 +16,7 @@ with open('requirements.txt', 'r') as f:
 
 setuptools.setup(
     name='Fern2',
-    version='0.0.2',
+    version='0.1.0',
     author='Jason, Lin',
     author_email='jason.m.lin@outlook.com',
     license='Apache 2.0',
