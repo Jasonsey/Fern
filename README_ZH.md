@@ -1,36 +1,36 @@
 # FERN
 
->  **English Version** | [中文版](./README_ZH.md)
+>  **中文版** | [English Version](./README.md)
 
-Fern defines a model development structure control for NLP. With the help of Fern, the text preprocessing, model building and model training can be implemented quickly. These modules contain the following functions:
+Fern用于NLP的模型开发结构控制。通过它可以控制文本预处理、模型搭建、训练器，这几个模块都包含如下功能：
 
-1. Text preprocessing: data downloader, data cleaner, data transformer and data splitter
-2. Model building: model saving, loading and architecture printing
-3. Model training: step /epochs training and evaluation, evaluation function setting, loss function setting and label weight setting
+1. 文本预处理：数据下载、数据清洗、数据转换和数据分割
+2. 模型搭建：模型保存与加载、模型架构打印
+3. 模型训练：单步/epoch训练与评估、评估函数设置、损失函数设置、label权重设置
 
-The design purpose of Fern is mainly to solve the problem of too much repetitive code in different NLP projects and reduce the flow code, so as to avoid random bugs in the process data interaction
+Fern的设计目的主要为了解决不同NLP工程中重复代码过多问题，减少流程性代码，从而避免数据交互过程中的随机bug出现
 
-## INSTALL
+## 安装
 
-1. Install from  `pypi`
+1. 从 `pypi` 安装
 
    ```shell
    $ pip install Fern2
    ```
 
-2. Install from source code
+2. 从源码安装
 
    ```shell
    $ pip install -e git+https://github.com/Jasonsey/Fern.git@develop
    ```
 
-## TUTORIAL
+## 使用教程
 
-This is a quick tutorial that covers the basics of all classes. For more usage methods, it is recommended to see the instructions for the functions in the source code
+这是一个快速上手的教程，包含了所有类的基础使用。更多使用方法，建议查看源码中函数的使用说明
 
-### DATA PREPARATION
+### 数据准备
 
-1. Data download
+1. 数据下载
 
    ```python
    from fern.utils.data import BaseDownloader
@@ -41,13 +41,13 @@ This is a quick tutorial that covers the basics of all classes. For more usage m
    loader.save(config.SOURCE_PATH)
    ```
 
-2. Load the downloaded data from disk
+2. 从硬盘加载下载好的数据
 
    ```python
    loader.load(config.SOURCE_PATH)
    ```
 
-3. Data cleaning
+3. 数据清洗
 
    ```python
    from fern.utils.data import BaseCleaner
@@ -67,7 +67,7 @@ This is a quick tutorial that covers the basics of all classes. For more usage m
    cleaner.clean(loader.data)
    ```
 
-4. Data transforming
+4. 数据转换
 
    ```python
    from fern.utils.data import BaseTransformer
@@ -94,7 +94,7 @@ This is a quick tutorial that covers the basics of all classes. For more usage m
    transformer.save(config.TRANSFORMED_DATA)
    ```
 
-5. Data segmentation
+5. 数据分割
 
    ```python
    from fern.utils.data import BaseSplitter
@@ -105,9 +105,9 @@ This is a quick tutorial that covers the basics of all classes. For more usage m
    splitter.save(config.SPLIT_DATA)
    ```
 
-### MODEL SEARCH
+### 模型搜索
 
-1. Configure the list of models to be searched
+1. 配置待搜索模型列表
 
 
   ```python
@@ -138,7 +138,7 @@ This is a quick tutorial that covers the basics of all classes. For more usage m
   UNOPTIMIZED_MODELS = [TextConv1D_1, TextConv1D_2]
   ```
 
-2. Searching the best model
+2. 搜索模型
 
    ```python
    from fern.utils.train import BaseTrainer
@@ -171,7 +171,7 @@ This is a quick tutorial that covers the basics of all classes. For more usage m
    print(f'Best Model: {best_model}, Best Score: {best_score}, Best Epoch: {best_epoch}')
    ```
 
-### TRAINING THE BEST MODEL
+### 训练最佳模型
 
 ```python
 my_model = UNOPTIMIZED_MODELS[0](
@@ -189,23 +189,22 @@ _ = trainer.train(config.BEST_EPOCH, mode='server')
 trainer.save(config.MODEL_PATH)
 ```
 
-## VARIABLE NAMING RULE
+## 变量命名规则
 
-In order to facilitate the definition, the following convention is made for the naming of easily divergent variables：
+为了方便定义，对容易分歧变量命名做如下约定：
 
-1. For data variables, write rules for variables of the same type：
+1. 对于数据变量，同类型变量书写规则：
    - `data_train`, `data_val`
    - `label_train`, `label_val`
+   
+2. 对于指标变量，同类型变量书写规则：
+    - `val_loss`, `val_acc`, `val_binary_acc`
+    - `train_loss`, `train_acc`
 
-2. For indicator variables, write rules for variables of the same type：
-   - `val_loss`, `val_acc`, `val_binary_acc`
-   - `train_loss`, `train_acc`
+3. 对于其他变量，按照`首先它属于a, 其次它属于b`规则命名变量名：`a_b`
+  
+    - `path_dataset`
 
-3. For other variables, according to the rule that first it belongs to a and second it belongs to b：`a_b`
-
-   - `path_dataset`
-
-## CNAGE LOG
+## 版本变更日志
 
 [CHANGE LOG](./CHANGELOG.md)
-
