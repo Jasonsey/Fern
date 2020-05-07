@@ -84,11 +84,9 @@ class BaseTrainer(object):
 
             for data_train, label_train in ProgressBar(dataset, desc='Train: ', total=total):
                 self.train_step(data_train, label_train)
-                break
 
             for data_val, label_val in ProgressBar(self.data['dataset_val'], desc='Val: ', total=self.data['step_val']):
                 self.val_step(data_val, label_val)
-                break
 
             stop_flag = False
             if early_stop is None:
