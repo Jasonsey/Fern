@@ -2,6 +2,10 @@
 
 ## Version 0.1
 
+- 0.1.4 (2020-05-20)
+  - Style
+    - Change the random state location where it's definded
+
 - 0.1.3 (2020-05-20)
   - New Features
     - add random state for data splitter
