@@ -480,11 +480,12 @@ class BaseTransformer(BaseDataTool):
 
 class BaseSplitter(BaseDataTool):
     """split data into train data and val data"""
-    def __init__(self, rate_val):
+    def __init__(self, rate_val, random_state=None):
         super().__init__()
         self.rate_val = rate_val
+        self.random_state = random_state
 
-    def split(self, data, input_col='data', output_col='label', random_state=None):
+    def split(self, data, input_col='data', output_col='label'):
         """
         split function to split data
 
@@ -496,8 +497,6 @@ class BaseSplitter(BaseDataTool):
             The data key name of the data dictionary
         output_col : str
             The label key name of the data dictionary
-        random_state : int, optional
-            random state
 
         Raises
         ------
@@ -507,7 +506,7 @@ class BaseSplitter(BaseDataTool):
         data, label = data[input_col], data[output_col]
         assert len(data) == len(label)
 
-        indexes = np.random.RandomState(random_state).permutation(data.shape[0])
+        indexes = np.random.RandomState(self.random_state).permutation(data.shape[0])
         i = int(data.shape[0] * self.rate_val)
         indexes_val, indexes_train = indexes[:i], indexes[i:]
 
