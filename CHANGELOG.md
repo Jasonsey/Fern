@@ -2,6 +2,10 @@
 
 ## Version 0.1
 
+- 0.1.3 (2020-05-20)
+  - New Features
+    - add random state for data splitter
+
 - 0.1.2 (2020-05-07)
   - Bug fix
     - Fix training loop quick exit bug
