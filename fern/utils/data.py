@@ -7,6 +7,7 @@
 """data tools"""
 import re
 import csv
+import json
 import typing
 
 import nltk
@@ -145,7 +146,7 @@ class BaseCleaner(BaseDataTool):
             u'*·,.!?[]()%#@&1234567890.;-:￭ abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
         }
 
-    def clean(self, data, update_data=True, input_col='data', output_col='label', idx_col=None):
+    def clean(self, data, update_data=True, data_col='data', label_col='label', idx_col=None):
         """
         clean data main entry
 
@@ -155,9 +156,9 @@ class BaseCleaner(BaseDataTool):
             source data frame
         update_data : bool
             To save the cleaned data to self.data. The default is True.
-        input_col : str
+        data_col : str
             The column name of the input data
-        output_col : str
+        label_col : str
             The column name of the output label
         idx_col : str, optional
             The index column name for source data. If not provided, the output columns will not contain index column.
@@ -167,15 +168,15 @@ class BaseCleaner(BaseDataTool):
         pd.DataFrame
             cleaned data
         """
-        data[input_col] = data.apply(self.clean_data, axis=1)
+        data[data_col] = data.apply(self.clean_data, axis=1)
         LOGGER.debug('All raw data has been cleaned.')
-        data[input_col] = data[input_col].map(self.str2word)
+        data[data_col] = data[data_col].map(self.str2word)
         LOGGER.debug('All cleaned data has been split into word list.')
 
-        data[output_col] = data.apply(self.clean_label, axis=1)
+        data[label_col] = data.apply(self.clean_label, axis=1)
         LOGGER.debug('All label data has been cleaned.')
 
-        columns = [idx_col, input_col, output_col] if idx_col is not None else [input_col, output_col]
+        columns = [idx_col, data_col, label_col] if idx_col is not None else [data_col, label_col]
         data = data[columns]
         data = data.dropna().reset_index(drop=True)
         if update_data:
@@ -193,7 +194,7 @@ class BaseCleaner(BaseDataTool):
 
         Returns
         -------
-        str, int
+        dict[str, list[str|int]]
             cleaned label
         """
         raise NotImplementedError
@@ -249,7 +250,9 @@ class BaseTransformer(BaseDataTool):
     ----------
     word_path : str
         Path to word library
-    output_shape : list[int]
+    label_path : str
+        Path to label data
+    output_shape : dict[str, int], list[int], tuple[int]
         output shape of label for transforming label
     min_len : int
         Minimum permissible sentence length for filtering training data
@@ -260,9 +263,9 @@ class BaseTransformer(BaseDataTool):
     data : pd.DataFrame, optional
         The cleaned data frame only to make word library
         If the word library doesn't exit, you may not provide the data
-    input_col : str
+    data_col : str
         The column name of the input data
-    output_col : str
+    label_col : str
         The column name of the output label
     filter_data : bool
         Whether to delete the input data which the sentence length is greater than max_len or less than min_len
@@ -275,25 +278,29 @@ class BaseTransformer(BaseDataTool):
 
     def __init__(self,
                  word_path,
+                 label_path,
                  output_shape,
                  min_len=5,
                  max_len=25,
                  min_freq=3,
                  data=None,
-                 input_col='data',
-                 output_col='label',
+                 data_col='data',
+                 label_col='label',
                  filter_data=True):
         super().__init__()
-        self.input_col = input_col
-        self.output_col = output_col
+        self.data_col = data_col
+        self.label_col = label_col
         self.output_shape = output_shape
         self.min_len = min_len
         self.max_len = max_len
         self.max_freq = min_freq
         self.word_path = word_path
+        self.label_path = label_path
 
         self.word2id = self.read_word2id(data)
         self.filter_data = filter_data
+
+        self.label_data = self.read_label_data(data)
 
     def transform(self, data, update_data=True):
         """
@@ -303,7 +310,6 @@ class BaseTransformer(BaseDataTool):
         ----------
         data : pd.DataFrame
             The data frame where the cleaned data is stored
-
         update_data : bool
             To save the cleaned data to self.data. The default is True.
 
@@ -315,18 +321,23 @@ class BaseTransformer(BaseDataTool):
         if self.filter_data:
             data = self.filter_data_func(data)
 
-        data[self.input_col] = data[self.input_col].map(self.transform_data)
-        data[self.output_col] = data[self.output_col].map(self.transform_label)
-
+        data[self.data_col] = data[self.data_col].map(self.transform_data)
+        data[self.label_col] = data[self.label_col].map(self.transform_label)
         data = data.dropna().reset_index(drop=True)
-        data, label = np.concatenate(data[self.input_col]), np.concatenate(data[self.output_col])
+
+        data_ = np.concatenate(data[self.data_col])
+
+        labels = {}
+        label = pd.DataFrame(data[self.label_col].to_list())
+        for col in label.columns:
+            labels[col] = np.concatenate(label[col])
 
         if update_data:
             self.data = {
-                self.input_col: data,
-                self.output_col: label
+                self.data_col: data_,
+                self.label_col: labels
             }
-        return data, label
+        return data, labels
 
     def transform_data(self, data):
         """
@@ -352,15 +363,69 @@ class BaseTransformer(BaseDataTool):
 
         Parameters
         ----------
-        label : np.int64
+        label : dict
             to be transform source label data
 
         Returns
         -------
-        np.ndarray
-            The transformed label with shape (1, m, n, ..)
+        dict[str, np.ndarray]
+            The transformed label
         """
         raise NotImplementedError
+
+    def read_label_data(self, data):
+        """
+        read label data dict for label index
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            The data frame where the cleaned data is stored. If no label data built, data should be provided.
+
+        Returns
+        -------
+        dict[str, list[str|int]]
+            all label for index
+        """
+        if Path(self.label_path).exists():
+            with open(self.label_path, 'r') as f:
+                label_data = json.load(f)
+        else:
+            label_data = self.reload_label_data(data)
+        return label_data
+
+    def reload_label_data(self, data):
+        """
+        reload label data
+
+        The principle of building label data here is that labels are independent of each other
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            The data frame where the source data is stored.
+
+        Returns
+        -------
+        dict[str, list[str|int]]
+            label data dict
+
+        Raises
+        ------
+        ValueError
+            If no data provide, TypeError will be raised
+        """
+        if data is None:
+            raise ValueError('No data is provided.')
+
+        label_data = {}
+        df_label = pd.DataFrame(data[self.data_col].to_list())
+        for col in df_label.columns:
+            label_data[col] = list(set(df_label[col]))
+
+        with open(self.label_path, 'w') as f:
+            json.dump(label_data, f)
+        return label_data
 
     def read_word2id(self, data=None):
         """
@@ -408,7 +473,7 @@ class BaseTransformer(BaseDataTool):
             raise ValueError('No data is provided.')
 
         words = []
-        _ = data[self.input_col].map(words.extend)
+        _ = data[self.data_col].map(words.extend)
         words = pd.Series(words).value_counts()
         words = words[words >= self.max_freq]
         words = list(words.index)
@@ -449,7 +514,7 @@ class BaseTransformer(BaseDataTool):
             """
             item = [word for word in item if word in self.word2id]
             return self.min_len <= len(item) <= self.max_len
-        return data[data[self.input_col].map(__filter_func)].reset_index(drop=True)
+        return data[data[self.data_col].map(__filter_func)].reset_index(drop=True)
 
     def save(self, path):
         """
@@ -485,17 +550,17 @@ class BaseSplitter(BaseDataTool):
         self.rate_val = rate_val
         self.random_state = random_state
 
-    def split(self, data, input_col='data', output_col='label'):
+    def split(self, data, data_col='data', label_col='label'):
         """
         split function to split data
 
         Parameters
         ----------
-        data : dict[str, np.ndarray]
-            'data' and 'label' should be keys of the data
-        input_col : str
+        data : dict[str, np.ndarray|dict[str, np.ndarray]]
+            data_col and label_col should be keys of the data
+        data_col : str
             The data key name of the data dictionary
-        output_col : str
+        label_col : str
             The label key name of the data dictionary
 
         Raises
@@ -503,21 +568,24 @@ class BaseSplitter(BaseDataTool):
         AssertionError
             If the data.shape[0] != label.shape[0]
         """
-        data, label = data[input_col], data[output_col]
-        assert len(data) == len(label)
+        data, labels = data[data_col], data[label_col]
+        for _, label in labels.items():
+            assert len(data) == len(label)
 
         indexes = np.random.RandomState(self.random_state).permutation(data.shape[0])
         i = int(data.shape[0] * self.rate_val)
         indexes_val, indexes_train = indexes[:i], indexes[i:]
 
         data_train, data_val = data[indexes_train], data[indexes_val]
-        label_train, label_val = label[indexes_train], label[indexes_val]
+        label_train, label_val = {}, {}
+        for label_name, label in labels.items():
+            label_train[label_name], label_val[label_name] = label[indexes_train], label[indexes_val]
 
         self.data = {
-            f'{input_col}_train': data_train,
-            f'{input_col}_val': data_val,
-            f'{output_col}_train': label_train,
-            f'{output_col}_val': label_val
+            f'{data_col}_train': data_train,
+            f'{data_col}_val': data_val,
+            f'{label_col}_train': label_train,
+            f'{label_col}_val': label_val
         }
 
     def save(self, path):
@@ -538,7 +606,15 @@ class BaseSplitter(BaseDataTool):
         if self.data is None:
             LOGGER.error('You should get source data before save')
             raise ValueError('You should get source data before save')
-        np.savez(path, **self.data)
+        data = {}
+        for key, value in self.data.items():
+            if isinstance(value, dict):
+                for k, v in value.items():
+                    name = f'{key}+k'
+                    data[name] = v
+            else:
+                data[key] = value
+        np.savez(path, **data)
 
     def load(self, path):
         """
@@ -549,4 +625,15 @@ class BaseSplitter(BaseDataTool):
         path : str, Path
             path where data save
         """
-        self.data = dict(np.load(path))
+        data = dict(np.load(path))
+        res = {}
+        for key, value in data.items():
+            if '+' in key:
+                parent, child = key.split('+')
+                if parent not in res:
+                    res[parent] = {child: value}
+                else:
+                    res[parent][child] = value
+            else:
+                res[key] = value
+        self.data = data
