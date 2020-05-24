@@ -146,7 +146,7 @@ class BaseCleaner(BaseDataTool):
             u'*·,.!?[]()%#@&1234567890.;-:￭ abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
         }
 
-    def clean(self, data, update_data=True, input_col='data', output_col='label', idx_col=None):
+    def clean(self, data, update_data=True, data_col='data', label_col='label', idx_col=None):
         """
         clean data main entry
 
@@ -156,9 +156,9 @@ class BaseCleaner(BaseDataTool):
             source data frame
         update_data : bool
             To save the cleaned data to self.data. The default is True.
-        input_col : str
+        data_col : str
             The column name of the input data
-        output_col : str
+        label_col : str
             The column name of the output label
         idx_col : str, optional
             The index column name for source data. If not provided, the output columns will not contain index column.
@@ -168,15 +168,15 @@ class BaseCleaner(BaseDataTool):
         pd.DataFrame
             cleaned data
         """
-        data[input_col] = data.apply(self.clean_data, axis=1)
+        data[data_col] = data.apply(self.clean_data, axis=1)
         LOGGER.debug('All raw data has been cleaned.')
-        data[input_col] = data[input_col].map(self.str2word)
+        data[data_col] = data[data_col].map(self.str2word)
         LOGGER.debug('All cleaned data has been split into word list.')
 
-        data[output_col] = data.apply(self.clean_label, axis=1)
+        data[label_col] = data.apply(self.clean_label, axis=1)
         LOGGER.debug('All label data has been cleaned.')
 
-        columns = [idx_col, input_col, output_col] if idx_col is not None else [input_col, output_col]
+        columns = [idx_col, data_col, label_col] if idx_col is not None else [data_col, label_col]
         data = data[columns]
         data = data.dropna().reset_index(drop=True)
         if update_data:
@@ -263,9 +263,9 @@ class BaseTransformer(BaseDataTool):
     data : pd.DataFrame, optional
         The cleaned data frame only to make word library
         If the word library doesn't exit, you may not provide the data
-    input_col : str
+    data_col : str
         The column name of the input data
-    output_col : str
+    label_col : str
         The column name of the output label
     filter_data : bool
         Whether to delete the input data which the sentence length is greater than max_len or less than min_len
@@ -284,12 +284,12 @@ class BaseTransformer(BaseDataTool):
                  max_len=25,
                  min_freq=3,
                  data=None,
-                 input_col='data',
-                 output_col='label',
+                 data_col='data',
+                 label_col='label',
                  filter_data=True):
         super().__init__()
-        self.input_col = input_col
-        self.output_col = output_col
+        self.data_col = data_col
+        self.label_col = label_col
         self.output_shape = output_shape
         self.min_len = min_len
         self.max_len = max_len
@@ -321,21 +321,21 @@ class BaseTransformer(BaseDataTool):
         if self.filter_data:
             data = self.filter_data_func(data)
 
-        data[self.input_col] = data[self.input_col].map(self.transform_data)
-        data[self.output_col] = data[self.output_col].map(self.transform_label)
-
+        data[self.data_col] = data[self.data_col].map(self.transform_data)
+        data[self.label_col] = data[self.label_col].map(self.transform_label)
         data = data.dropna().reset_index(drop=True)
-        data = np.concatenate(data[self.input_col])
+
+        data_ = np.concatenate(data[self.data_col])
 
         labels = {}
-        label = pd.DataFrame(data[self.output_col].to_list())
+        label = pd.DataFrame(data[self.label_col].to_list())
         for col in label.columns:
             labels[col] = np.concatenate(label[col])
 
         if update_data:
             self.data = {
-                self.input_col: data,
-                self.output_col: labels
+                self.data_col: data_,
+                self.label_col: labels
             }
         return data, labels
 
@@ -419,7 +419,7 @@ class BaseTransformer(BaseDataTool):
             raise ValueError('No data is provided.')
 
         label_data = {}
-        df_label = pd.DataFrame(data[self.input_col].to_list())
+        df_label = pd.DataFrame(data[self.data_col].to_list())
         for col in df_label.columns:
             label_data[col] = list(set(df_label[col]))
 
@@ -473,7 +473,7 @@ class BaseTransformer(BaseDataTool):
             raise ValueError('No data is provided.')
 
         words = []
-        _ = data[self.input_col].map(words.extend)
+        _ = data[self.data_col].map(words.extend)
         words = pd.Series(words).value_counts()
         words = words[words >= self.max_freq]
         words = list(words.index)
@@ -514,7 +514,7 @@ class BaseTransformer(BaseDataTool):
             """
             item = [word for word in item if word in self.word2id]
             return self.min_len <= len(item) <= self.max_len
-        return data[data[self.input_col].map(__filter_func)].reset_index(drop=True)
+        return data[data[self.data_col].map(__filter_func)].reset_index(drop=True)
 
     def save(self, path):
         """
@@ -550,17 +550,17 @@ class BaseSplitter(BaseDataTool):
         self.rate_val = rate_val
         self.random_state = random_state
 
-    def split(self, data, input_col='data', output_col='label'):
+    def split(self, data, data_col='data', label_col='label'):
         """
         split function to split data
 
         Parameters
         ----------
         data : dict[str, np.ndarray|dict[str, np.ndarray]]
-            input_col and output_col should be keys of the data
-        input_col : str
+            data_col and label_col should be keys of the data
+        data_col : str
             The data key name of the data dictionary
-        output_col : str
+        label_col : str
             The label key name of the data dictionary
 
         Raises
@@ -568,7 +568,7 @@ class BaseSplitter(BaseDataTool):
         AssertionError
             If the data.shape[0] != label.shape[0]
         """
-        data, labels = data[input_col], data[output_col]
+        data, labels = data[data_col], data[label_col]
         for _, label in labels.items():
             assert len(data) == len(label)
 
@@ -582,10 +582,10 @@ class BaseSplitter(BaseDataTool):
             label_train[label_name], label_val[label_name] = label[indexes_train], label[indexes_val]
 
         self.data = {
-            f'{input_col}_train': data_train,
-            f'{input_col}_val': data_val,
-            f'{output_col}_train': label_train,
-            f'{output_col}_val': label_val
+            f'{data_col}_train': data_train,
+            f'{data_col}_val': data_val,
+            f'{label_col}_train': label_train,
+            f'{label_col}_val': label_val
         }
 
     def save(self, path):
