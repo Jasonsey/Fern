@@ -1,5 +1,17 @@
 # CHANGE LOG
 
+## Version 0.2
+
+- 0.2.0 (2020-05-24)
+  - New Features:
+    - Modify output shape from list into dict
+    - Add label path for storing label data
+    - Modify transformed label from array into dictionary
+    - Update transformed label and data function
+  - Style
+    - Change variable name input_col to data_col
+    - Change variable name output_col to label_col
+
 ## Version 0.1
 
 - 0.1.4 (2020-05-20)
