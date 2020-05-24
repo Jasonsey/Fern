@@ -17,7 +17,7 @@ class BaseModel(object):
 
     Parameters
     ----------
-    output_shape : list[int], tuple[int]
+    output_shape : dict[str, int], list[int], tuple[int]
         output shape without batch size
     max_seq_len : int
         the max input sequence length
