@@ -1,5 +1,16 @@
 # CHANGE LOG
 
+## Version 0.3
+
+- 0.3.0 (2020-07-02)
+  - New Feature:
+    - using cut_func to split sequence to word list
+    - Add save_function for every data precessing stage
+    - Mark FernTransformer.output_shape as optional
+    - Enable data frame default index
+    - Add Sequence2Words class as cut_func generator
+    - Use fern as default data frame 
+
 ## Version 0.2
 
 - 0.2.0 (2020-05-24)
