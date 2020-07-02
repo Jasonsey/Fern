@@ -8,145 +8,154 @@
 import re
 import csv
 import json
+import pickle
 import typing
+import pathlib
 
-import nltk
 import pymssql
+import pymysql
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from nltk.tokenize import MWETokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-from fern.config import LOGGER
+from fern import setting
+from fern.utils import common
 
 
-class BaseDataTool(object):
-    def __init__(self):
-        self.data = None    # type: typing.Optional[pd.DataFrame]
+class FernSeries(pd.Series):
+    @property
+    def _constructor(self):
+        return FernSeries
+
+    @property
+    def _constructor_expanddim(self):
+        return FernDataFrame
+
+
+class FernDataFrame(pd.DataFrame):
+    """sub class of pandas.DataFrame with additional function"""
+
+    @property
+    def _constructor_expanddim(self):
+        """for lint check"""
+        raise NotImplementedError
+
+    @property
+    def _constructor(self):
+        return FernDataFrame
+
+    @property
+    def _constructor_sliced(self):
+        return FernSeries
 
     def save(self, path):
         """
-        save data to path
+        save data frame with csv format to path
 
         Parameters
         ----------
         path : str, Path
             path where data save
         """
-        self.check_path(path)
-        if self.data is None:
-            LOGGER.error('You should get source data before save')
-            raise
-        self.data.to_csv(path, index=False, encoding='utf-8-sig', quoting=csv.QUOTE_NONNUMERIC)
-
-    def load(self, path):
-        """
-        load data from path
-
-        Parameters
-        ----------
-        path : str, Path
-            path where data save
-        """
-        data = pd.read_csv(path)
-        self.data = data.dropna().reset_index(drop=True)
-
-    @staticmethod
-    def read_words(words_path):
-        """
-        read user words, stop words and word library from path
-
-        Parameters
-        ----------
-        words_path : str, Path, None
-            words path
-
-        Returns
-        -------
-        list[str]
-            user word list and stop word list
-        """
-        def read(path):
-            with open(path, mode='r', encoding='utf-8') as f:
-                res = f.readlines()
-            res = [item.strip().lower() for item in res]
-            return set(res)
-        if words_path is None:
-            words = set()
-        else:
-            words = read(words_path)
-        words = list(words)
-        return words
-
-    @staticmethod
-    def check_path(path):
-        """
-        check if path exits. If not exit, the path.parent will be created.
-
-        Parameters
-        ----------
-        path : str, Path
-            path to be check
-        """
-        path = Path(path).parent
-        if not path.exists():
-            LOGGER.warn(f'{path} does not exit. Creat it.')
-            path.mkdir(parents=True)
+        common.check_path(path)
+        self.to_csv(path, index=False, encoding='utf-8-sig', quoting=csv.QUOTE_NONNUMERIC)
 
 
-class BaseDownloader(BaseDataTool):
-    """
-    data downloader
-
-    Parameters
-    ----------
-    host : str
-            sql server host
-    user : str
-        user name
-    password : str
-        user password
-    """
+class FernDownloader(object):
     def __init__(self, host, user, password):
-        super().__init__()
+        """
+        data downloader
+
+        Parameters
+        ----------
+        host : str
+                sql server host
+        user : str
+            user name
+        password : str
+            user password
+        """
+        self.data: typing.Optional[FernDataFrame] = None
         self.host = host
         self.user = user
         self.password = password
 
-    def read_msssql(self, sql):
+    def read_msssql(self, sql, index=None, drop=False):
         conn = pymssql.connect(host=self.host, user=self.user, password=self.password, charset=r'utf8')
-        data = pd.read_sql(sql, conn)
-        self.data = data.dropna().reset_index(drop=True)
+        df = pd.read_sql(sql, conn)
+        df = FernDataFrame(df)
+
+        if drop:
+            df = df.dropna()
+        if index is None:
+            self.data = df
+        else:
+            self.data = df.set_index(index)
         conn.close()
+        return self
+
+    def read_mysql(self, sql, index=None, drop=False):
+        conn = pymysql.connect(host=self.host, user=self.user, password=self.password, charset=r'utf8')
+        df = pd.read_sql(sql, conn)
+        df = FernDataFrame(df)
+
+        if drop:
+            df = df.dropna()
+        if index is None:
+            self.data = df
+        else:
+            self.data = df.dropna().set_index(index)
+        conn.close()
+        return self
+
+    def save(self, path):
+        """save data frame into csv"""
+        self.data.save(path=path)
 
 
-class BaseCleaner(BaseDataTool):
+class FernCleaner(object):
     """
     data cleaner
 
     Parameters
     ----------
-    user_words : str, Path, optional
-        user words path
     stop_words : str, Path, optional
         stop words path
+    cut_func : typing.Callable
+        a function to split sequence to word list
+    update_data : bool
+        To save the cleaned data to self.data. The default is True.
+    data_col : str
+        The column name of the input data
+    label_col : str
+        The column name of the output label
+    idx_col : str, optional
+        The index column name for source data. If not provided, the output columns will not contain index column.
     """
-    def __init__(self, stop_words=None, user_words=None):
-        super().__init__()
-        self.stop_words = self.read_words(stop_words)
+    def __init__(self,
+                 stop_words=None,
+                 cut_func=None,
+                 update_data=True,
+                 data_col='data',
+                 label_col='label',
+                 idx_col=None):
+        self.data: typing.Optional[FernDataFrame] = None
+        self.logger = setting.LOGGER
+        self.stop_words = common.read_words(stop_words)
+        self.update_data = update_data
+        self.data_col = data_col
+        self.label_col = label_col
+        self.idx_col = idx_col
 
-        nltk.download('punkt')
-        user_words = self.read_words(user_words)
-        user_words = [tuple(item.split(' ')) for item in user_words]
-        self.tokenizer = MWETokenizer(user_words, separator=' ')
-
+        if cut_func is None:
+            self.cut_func = common.Sequence2Words(language='en', user_words=None)
+        else:
+            self.cut_func = cut_func
         self.table = {ord(f): ord(t) for f, t in zip(
             u'＊・，。！？【】（）％＃＠＆１２３４５６７８９０、；—：■　ａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ',
-            u'*·,.!?[]()%#@&1234567890.;-:￭ abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
-        }
+            u'*·,.!?[]()%#@&1234567890.;-:￭ abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')}
 
-    def clean(self, data, update_data=True, data_col='data', label_col='label', idx_col=None):
+    def clean(self, data):
         """
         clean data main entry
 
@@ -154,32 +163,28 @@ class BaseCleaner(BaseDataTool):
         ----------
         data : pd.DataFrame
             source data frame
-        update_data : bool
-            To save the cleaned data to self.data. The default is True.
-        data_col : str
-            The column name of the input data
-        label_col : str
-            The column name of the output label
-        idx_col : str, optional
-            The index column name for source data. If not provided, the output columns will not contain index column.
 
         Returns
         -------
         pd.DataFrame
-            cleaned data
+            cleaned data with columns: data_col and label_col
         """
-        data[data_col] = data.apply(self.clean_data, axis=1)
-        LOGGER.debug('All raw data has been cleaned.')
-        data[data_col] = data[data_col].map(self.str2word)
-        LOGGER.debug('All cleaned data has been split into word list.')
+        if self.idx_col is not None and data.index.name != self.idx_col:
+            data = data.set_index(self.idx_col)
 
-        data[label_col] = data.apply(self.clean_label, axis=1)
-        LOGGER.debug('All label data has been cleaned.')
+        data[self.data_col] = data.apply(self.clean_data, axis=1)
+        self.logger.debug('All raw data has been cleaned.')
+        data[self.data_col] = data[self.data_col].map(self.str2word)
+        self.logger.debug('All cleaned data has been split into word list.')
 
-        columns = [idx_col, data_col, label_col] if idx_col is not None else [data_col, label_col]
+        data[self.label_col] = data.apply(self.clean_label, axis=1)
+        self.logger.debug('All label data has been cleaned.')
+
+        columns = [self.data_col, self.label_col]
         data = data[columns]
-        data = data.dropna().reset_index(drop=True)
-        if update_data:
+        data = data.dropna()
+        data = FernDataFrame(data)
+        if self.update_data:
             self.data = data
         return data
 
@@ -229,8 +234,7 @@ class BaseCleaner(BaseDataTool):
         list[str]
             cleaned word list
         """
-        data = nltk.word_tokenize(string)
-        data = self.tokenizer.tokenize(data)
+        data = self.cut_func(string)
         words = []
         for da in data:
             da = re.sub('[^a-zA-Z0-9\-_. ]', '', da)
@@ -241,8 +245,36 @@ class BaseCleaner(BaseDataTool):
             words = np.nan
         return words
 
+    def save(self, path):
+        """
+        save data to path
 
-class BaseTransformer(BaseDataTool):
+        Parameters
+        ----------
+        path : str, Path
+            path where data save
+        """
+        common.check_path(path)
+        if self.data is None:
+            self.logger.error('You should get source data before save')
+            raise ValueError('You should get source data before save')
+        self.data.save(path)
+
+    def load(self, path):
+        """
+        load data from path
+
+        Parameters
+        ----------
+        path : str, Path
+            path where data save
+        """
+        data = pd.read_csv(path, index_col=self.idx_col)
+        data[self.label_col] = data[self.label_col].map(eval)
+        self.data = data
+
+
+class FernTransformer(object):
     """
     Data transformer to convert data to neural network input format
 
@@ -252,8 +284,9 @@ class BaseTransformer(BaseDataTool):
         Path to word library
     label_path : str
         Path to label data
-    output_shape : dict[str, int], list[int], tuple[int]
-        output shape of label for transforming label
+    output_shape : dict[str, int], list[int], tuple[int], optional
+        output shape of label for transforming label.
+        you don't have to defined it if you don't use it to transform label
     min_len : int
         Minimum permissible sentence length for filtering training data
     max_len : int
@@ -279,7 +312,7 @@ class BaseTransformer(BaseDataTool):
     def __init__(self,
                  word_path,
                  label_path,
-                 output_shape,
+                 output_shape=None,
                  min_len=5,
                  max_len=25,
                  min_freq=3,
@@ -287,7 +320,8 @@ class BaseTransformer(BaseDataTool):
                  data_col='data',
                  label_col='label',
                  filter_data=True):
-        super().__init__()
+        self.data: typing.Optional[typing.Dict[str, typing.Union[np.ndarray, typing.Dict[str, np.ndarray]]]] = None
+
         self.data_col = data_col
         self.label_col = label_col
         self.output_shape = output_shape
@@ -301,6 +335,7 @@ class BaseTransformer(BaseDataTool):
         self.filter_data = filter_data
 
         self.label_data = self.read_label_data(data)
+        self.logger = setting.LOGGER
 
     def transform(self, data, update_data=True):
         """
@@ -323,12 +358,12 @@ class BaseTransformer(BaseDataTool):
 
         data[self.data_col] = data[self.data_col].map(self.transform_data)
         data[self.label_col] = data[self.label_col].map(self.transform_label)
-        data = data.dropna().reset_index(drop=True)
+        data = data.dropna()
 
         data_ = np.concatenate(data[self.data_col])
 
         labels = {}
-        label = pd.DataFrame(data[self.label_col].to_list())
+        label = pd.DataFrame(data[self.label_col].to_list())    # data.label_col 每一行都是字典
         for col in label.columns:
             labels[col] = np.concatenate(label[col])
 
@@ -387,7 +422,7 @@ class BaseTransformer(BaseDataTool):
         dict[str, list[str|int]]
             all label for index
         """
-        if Path(self.label_path).exists():
+        if pathlib.Path(self.label_path).exists():
             with open(self.label_path, 'r') as f:
                 label_data = json.load(f)
         else:
@@ -419,7 +454,7 @@ class BaseTransformer(BaseDataTool):
             raise ValueError('No data is provided.')
 
         label_data = {}
-        df_label = pd.DataFrame(data[self.data_col].to_list())
+        df_label = pd.DataFrame(data[self.label_col].to_list())    # data.label_col每一行都是字典
         for col in df_label.columns:
             label_data[col] = list(set(df_label[col]))
 
@@ -441,7 +476,7 @@ class BaseTransformer(BaseDataTool):
         dict[str, int]
             The word to id dictionary
         """
-        if Path(self.word_path).exists():
+        if pathlib.Path(self.word_path).exists():
             with open(self.word_path, 'r', encoding='utf-8') as f:
                 words = f.readlines()
                 words = [word.strip().lower() for word in words]
@@ -514,7 +549,7 @@ class BaseTransformer(BaseDataTool):
             """
             item = [word for word in item if word in self.word2id]
             return self.min_len <= len(item) <= self.max_len
-        return data[data[self.data_col].map(__filter_func)].reset_index(drop=True)
+        return data[data[self.data_col].map(__filter_func)]
 
     def save(self, path):
         """
@@ -525,11 +560,12 @@ class BaseTransformer(BaseDataTool):
         path : str, Path
             path where data save
         """
-        self.check_path(path)
+        common.check_path(path)
         if self.data is None:
-            LOGGER.error('You should get source data before save')
-            raise
-        np.savez(path, **self.data)
+            self.logger.error('You should get source data before save')
+            raise ValueError('You should get source data before save')
+        with open(path, 'wb') as f:
+            pickle.dump(self.data, f)
 
     def load(self, path):
         """
@@ -540,15 +576,18 @@ class BaseTransformer(BaseDataTool):
         path : str, Path
             path where data save
         """
-        self.data = dict(np.load(path))
+        with open(path, 'rb') as f:
+            self.data = pickle.load(f)
 
 
-class BaseSplitter(BaseDataTool):
+class FernSplitter(object):
     """split data into train data and val data"""
     def __init__(self, rate_val, random_state=None):
-        super().__init__()
+        self.data: typing.Optional[typing.Dict[str, typing.Union[np.ndarray, typing.Dict[str, np.ndarray]]]] = None
+
         self.rate_val = rate_val
         self.random_state = random_state
+        self.logger = setting.LOGGER
 
     def split(self, data, data_col='data', label_col='label'):
         """
@@ -602,19 +641,12 @@ class BaseSplitter(BaseDataTool):
         ValueError
             You should get source data before save
         """
-        self.check_path(path)
+        common.check_path(path)
         if self.data is None:
-            LOGGER.error('You should get source data before save')
+            self.logger.error('You should get source data before save')
             raise ValueError('You should get source data before save')
-        data = {}
-        for key, value in self.data.items():
-            if isinstance(value, dict):
-                for k, v in value.items():
-                    name = f'{key}+k'
-                    data[name] = v
-            else:
-                data[key] = value
-        np.savez(path, **data)
+        with open(path, 'wb') as f:
+            pickle.dump(self.data, f)
 
     def load(self, path):
         """
@@ -625,15 +657,5 @@ class BaseSplitter(BaseDataTool):
         path : str, Path
             path where data save
         """
-        data = dict(np.load(path))
-        res = {}
-        for key, value in data.items():
-            if '+' in key:
-                parent, child = key.split('+')
-                if parent not in res:
-                    res[parent] = {child: value}
-                else:
-                    res[parent][child] = value
-            else:
-                res[key] = value
-        self.data = data
+        with open(path, 'rb') as f:
+            self.data = pickle.load(f)
