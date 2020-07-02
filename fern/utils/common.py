@@ -5,6 +5,7 @@
 #
 # =============================================================================
 """common function"""
+import pathlib
 from tqdm import tqdm
 
 
@@ -30,6 +31,20 @@ def read_library_size(path):
             if len(line) > 0:
                 res.append(line)
     return len(res)
+
+
+def check_path(path):
+    """
+    check if path exits. If not exit, the path.parent will be created.
+
+    Parameters
+    ----------
+    path : str, Path
+        path to be check
+    """
+    path = pathlib.Path(path).parent
+    if not path.exists():
+        path.mkdir(parents=True)
 
 
 class ProgressBar(tqdm):

@@ -11,7 +11,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.metrics import Metric
 
-from fern.config import LOGGER
+from fern.setting import LOGGER
 from .common import ProgressBar
 from .model import BaseModel
 
