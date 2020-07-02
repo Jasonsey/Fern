@@ -8,15 +8,14 @@
 import re
 import csv
 import json
+import pickle
 import typing
 import pathlib
 
-import nltk
 import pymssql
 import pymysql
 import numpy as np
 import pandas as pd
-from nltk.tokenize import MWETokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 from fern import setting
@@ -120,27 +119,43 @@ class FernCleaner(object):
 
     Parameters
     ----------
-    user_words : str, Path, optional
-        user words path
     stop_words : str, Path, optional
         stop words path
+    cut_func : typing.Callable
+        a function to split sequence to word list
+    update_data : bool
+        To save the cleaned data to self.data. The default is True.
+    data_col : str
+        The column name of the input data
+    label_col : str
+        The column name of the output label
+    idx_col : str, optional
+        The index column name for source data. If not provided, the output columns will not contain index column.
     """
-    def __init__(self, stop_words=None, user_words=None):
+    def __init__(self,
+                 stop_words=None,
+                 cut_func=None,
+                 update_data=True,
+                 data_col='data',
+                 label_col='label',
+                 idx_col=None):
         self.data: typing.Optional[FernDataFrame] = None
+        self.logger = setting.LOGGER
+        self.stop_words = common.read_words(stop_words)
+        self.update_data = update_data
+        self.data_col = data_col
+        self.label_col = label_col
+        self.idx_col = idx_col
 
-        self.stop_words = self.read_words(stop_words)
-        nltk.download('punkt')
-        user_words = self.read_words(user_words)
-        user_words = [tuple(item.split(' ')) for item in user_words]
-        self.tokenizer = MWETokenizer(user_words, separator=' ')
-
+        if cut_func is None:
+            self.cut_func = common.Sequence2Words(language='en', user_words=None)
+        else:
+            self.cut_func = cut_func
         self.table = {ord(f): ord(t) for f, t in zip(
             u'＊・，。！？【】（）％＃＠＆１２３４５６７８９０、；—：■　ａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ',
-            u'*·,.!?[]()%#@&1234567890.;-:￭ abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
-        }
-        self.logger = setting.LOGGER
+            u'*·,.!?[]()%#@&1234567890.;-:￭ abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')}
 
-    def clean(self, data, update_data=True, data_col='data', label_col='label', idx_col=None):
+    def clean(self, data):
         """
         clean data main entry
 
@@ -148,35 +163,28 @@ class FernCleaner(object):
         ----------
         data : pd.DataFrame
             source data frame
-        update_data : bool
-            To save the cleaned data to self.data. The default is True.
-        data_col : str
-            The column name of the input data
-        label_col : str
-            The column name of the output label
-        idx_col : str, optional
-            The index column name for source data. If not provided, the output columns will not contain index column.
 
         Returns
         -------
         pd.DataFrame
             cleaned data with columns: data_col and label_col
         """
-        if idx_col is not None:
-            data = data.set_index(idx_col)
+        if self.idx_col is not None and data.index.name != self.idx_col:
+            data = data.set_index(self.idx_col)
 
-        data[data_col] = data.apply(self.clean_data, axis=1)
+        data[self.data_col] = data.apply(self.clean_data, axis=1)
         self.logger.debug('All raw data has been cleaned.')
-        data[data_col] = data[data_col].map(self.str2word)
+        data[self.data_col] = data[self.data_col].map(self.str2word)
         self.logger.debug('All cleaned data has been split into word list.')
 
-        data[label_col] = data.apply(self.clean_label, axis=1)
+        data[self.label_col] = data.apply(self.clean_label, axis=1)
         self.logger.debug('All label data has been cleaned.')
 
-        columns = [data_col, label_col]
+        columns = [self.data_col, self.label_col]
         data = data[columns]
         data = data.dropna()
-        if update_data:
+        data = FernDataFrame(data)
+        if self.update_data:
             self.data = data
         return data
 
@@ -226,8 +234,7 @@ class FernCleaner(object):
         list[str]
             cleaned word list
         """
-        data = nltk.word_tokenize(string)
-        data = self.tokenizer.tokenize(data)
+        data = self.cut_func(string)
         words = []
         for da in data:
             da = re.sub('[^a-zA-Z0-9\-_. ]', '', da)
@@ -238,33 +245,33 @@ class FernCleaner(object):
             words = np.nan
         return words
 
-    @staticmethod
-    def read_words(words_path):
+    def save(self, path):
         """
-        read user words, stop words and word library from path
+        save data to path
 
         Parameters
         ----------
-        words_path : str, Path, None
-            words path
-
-        Returns
-        -------
-        list[str]
-            user word list and stop word list
+        path : str, Path
+            path where data save
         """
-        def read(path):
-            with open(path, mode='r', encoding='utf-8') as f:
-                res = f.readlines()
-            res = [item.strip().lower() for item in res]
-            return set(res)
+        common.check_path(path)
+        if self.data is None:
+            self.logger.error('You should get source data before save')
+            raise ValueError('You should get source data before save')
+        self.data.save(path)
 
-        if words_path is None:
-            words = set()
-        else:
-            words = read(words_path)
-        words = list(words)
-        return words
+    def load(self, path):
+        """
+        load data from path
+
+        Parameters
+        ----------
+        path : str, Path
+            path where data save
+        """
+        data = pd.read_csv(path, index_col=self.idx_col)
+        data[self.label_col] = data[self.label_col].map(eval)
+        self.data = data
 
 
 class FernTransformer(object):
@@ -277,8 +284,9 @@ class FernTransformer(object):
         Path to word library
     label_path : str
         Path to label data
-    output_shape : dict[str, int], list[int], tuple[int]
-        output shape of label for transforming label
+    output_shape : dict[str, int], list[int], tuple[int], optional
+        output shape of label for transforming label.
+        you don't have to defined it if you don't use it to transform label
     min_len : int
         Minimum permissible sentence length for filtering training data
     max_len : int
@@ -304,7 +312,7 @@ class FernTransformer(object):
     def __init__(self,
                  word_path,
                  label_path,
-                 output_shape,
+                 output_shape=None,
                  min_len=5,
                  max_len=25,
                  min_freq=3,
@@ -312,7 +320,7 @@ class FernTransformer(object):
                  data_col='data',
                  label_col='label',
                  filter_data=True):
-        self.data: typing.Optional[typing.Dict[str, np.ndarray]] = None
+        self.data: typing.Optional[typing.Dict[str, typing.Union[np.ndarray, typing.Dict[str, np.ndarray]]]] = None
 
         self.data_col = data_col
         self.label_col = label_col
@@ -350,7 +358,7 @@ class FernTransformer(object):
 
         data[self.data_col] = data[self.data_col].map(self.transform_data)
         data[self.label_col] = data[self.label_col].map(self.transform_label)
-        data = data.dropna().reset_index(drop=True)
+        data = data.dropna()
 
         data_ = np.concatenate(data[self.data_col])
 
@@ -541,7 +549,7 @@ class FernTransformer(object):
             """
             item = [word for word in item if word in self.word2id]
             return self.min_len <= len(item) <= self.max_len
-        return data[data[self.data_col].map(__filter_func)].reset_index(drop=True)
+        return data[data[self.data_col].map(__filter_func)]
 
     def save(self, path):
         """
@@ -555,8 +563,9 @@ class FernTransformer(object):
         common.check_path(path)
         if self.data is None:
             self.logger.error('You should get source data before save')
-            raise
-        np.savez(path, **self.data)
+            raise ValueError('You should get source data before save')
+        with open(path, 'wb') as f:
+            pickle.dump(self.data, f)
 
     def load(self, path):
         """
@@ -567,13 +576,14 @@ class FernTransformer(object):
         path : str, Path
             path where data save
         """
-        self.data = dict(np.load(path))
+        with open(path, 'rb') as f:
+            self.data = pickle.load(f)
 
 
 class FernSplitter(object):
     """split data into train data and val data"""
     def __init__(self, rate_val, random_state=None):
-        self.data: typing.Optional[typing.Dict[str, np.ndarray]] = None
+        self.data: typing.Optional[typing.Dict[str, typing.Union[np.ndarray, typing.Dict[str, np.ndarray]]]] = None
 
         self.rate_val = rate_val
         self.random_state = random_state
@@ -635,15 +645,8 @@ class FernSplitter(object):
         if self.data is None:
             self.logger.error('You should get source data before save')
             raise ValueError('You should get source data before save')
-        data = {}
-        for key, value in self.data.items():
-            if isinstance(value, dict):
-                for k, v in value.items():
-                    name = f'{key}+k'
-                    data[name] = v
-            else:
-                data[key] = value
-        np.savez(path, **data)
+        with open(path, 'wb') as f:
+            pickle.dump(self.data, f)
 
     def load(self, path):
         """
@@ -654,15 +657,5 @@ class FernSplitter(object):
         path : str, Path
             path where data save
         """
-        data = dict(np.load(path))
-        res = {}
-        for key, value in data.items():
-            if '+' in key:
-                parent, child = key.split('+')
-                if parent not in res:
-                    res[parent] = {child: value}
-                else:
-                    res[parent][child] = value
-            else:
-                res[key] = value
-        self.data = data
+        with open(path, 'rb') as f:
+            self.data = pickle.load(f)
