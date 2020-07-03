@@ -2,6 +2,11 @@
 
 ## Version 0.3
 
+- 0.3.1 (2020-07-02)
+  - Bug Fix:
+    - Fix no user words file exist issue
+    - Fix cleaned label value should be a list issue
+  
 - 0.3.0 (2020-07-02)
   - New Feature:
     - using cut_func to split sequence to word list
