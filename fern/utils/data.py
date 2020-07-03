@@ -404,7 +404,7 @@ class FernTransformer(object):
         Returns
         -------
         dict[str, np.ndarray]
-            The transformed label
+            The transformed label and make sure using int32
         """
         raise NotImplementedError
 
@@ -456,7 +456,9 @@ class FernTransformer(object):
         label_data = {}
         df_label = pd.DataFrame(data[self.label_col].to_list())    # data.label_col每一行都是字典
         for col in df_label.columns:
-            label_data[col] = list(set(df_label[col]))
+            tmp = set()
+            df_label[col].map(lambda x: tmp.update(x))
+            label_data[col] = list(tmp)
 
         with open(self.label_path, 'w') as f:
             json.dump(label_data, f)

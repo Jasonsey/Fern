@@ -96,15 +96,15 @@ class Sequence2Words(object):
         user_words : str, pathlib.Path, optional
             make sure a word in one line
         """
+        words = read_words(user_words)
         if language == 'en':
             nltk.download('punkt')
-            user_words = read_words(user_words)
-            user_words = [tuple(item.split(' ')) for item in user_words]
+            user_words = [tuple(item.split(' ')) for item in words]
             tokenizer = tokenize.MWETokenizer(user_words, separator=' ')
             self.cut_func = lambda string: tokenizer.tokenize(nltk.word_tokenize(string))
         elif language == 'zh':
-            if user_words:
-                jieba.load_userdict(user_words)
+            for word in words:
+                jieba.add_word(word)
             self.cut_func = jieba.lcut
         else:
             raise ValueError(f'Not support for language: {language}')
