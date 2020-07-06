@@ -5,7 +5,9 @@
 #
 # =============================================================================
 """model trainer"""
-from pathlib import Path
+import typing
+import pickle
+import pathlib
 
 import numpy as np
 import tensorflow as tf
@@ -13,16 +15,18 @@ from tensorflow.keras.metrics import Metric
 
 from fern.setting import LOGGER
 from .common import ProgressBar
-from .model import BaseModel
+from .model import FernModel
 
 
-class BaseTrainer(object):
+class FernTrainer(object):
     """
     model trainer
 
+    This can be used in one output and multi outputs
+
     Parameters
     ----------
-    model : BaseModel
+    model : FernModel
         the model to be trained
     path_data : str, Path
         Points to training data in npz format
@@ -82,17 +86,17 @@ class BaseTrainer(object):
                     self.metrics[stage][metric].reset_states()
             number += 1
 
-            for data_train, label_train in ProgressBar(dataset, desc='Train: ', total=total):
-                self.train_step(data_train, label_train)
+            for items_train in ProgressBar(dataset, desc='Train: ', total=total):
+                self.train_step(*items_train)
 
-            for data_val, label_val in ProgressBar(self.data['dataset_val'], desc='Val: ', total=self.data['step_val']):
-                self.val_step(data_val, label_val)
+            for items_val in ProgressBar(self.data['dataset_val'], desc='Val: ', total=self.data['step_val']):
+                self.val_step(*items_val)
 
             stop_flag = False
             if early_stop is None:
                 log = [f'Epoch: {epoch}']
             else:
-                early_stop_result = self.early_stop_metric.result()
+                early_stop_result = self.early_stop_metric.result().numpy()
                 if hasattr(early_stop_result, '__len__'):
                     score = early_stop_result[-1]
                 else:
@@ -121,17 +125,18 @@ class BaseTrainer(object):
         return best_score, best_epoch
 
     @tf.function
-    def train_step(self, data, label):
+    def train_step(self, data, *labels):
         """
         train one step
 
         Parameters
         ----------
-        data : tf.Tensor
+        data: tf.Tensor
             the input train data
-        label : tf.Tensor
-            the output train label
+        labels: tuple[tf.Tensor]
+            the output train labels
         """
+        label = labels[0] if len(labels) == 1 else list(labels)
         with tf.GradientTape() as tape:
             prediction = self.model(data)
             loss = self.loss(prediction, label)
@@ -143,17 +148,18 @@ class BaseTrainer(object):
         self.metrics['train']['acc'].update_state(acc)
 
     @tf.function
-    def val_step(self, data, label):
+    def val_step(self, data, *labels):
         """
         val one step
 
         Parameters
         ----------
-        data : tf.Tensor
-            the input val data
-        label : tf.Tensor
-            the output val labels
+        data: tf.Tensor
+            the input train data
+        labels: tuple[tf.Tensor]
+            the output train labels
         """
+        label = labels[0] if len(labels) == 1 else list(labels)
         prediction = self.model(data)
         loss = self.loss(prediction, label, train=False)
         acc = self.acc(prediction, label)
@@ -207,19 +213,19 @@ class BaseTrainer(object):
         }
         return res, res['val']['acc']
 
-    def loss(self, y_predicted, y_desired, train=True):
+    def loss(self, ys_predicted, ys_desired, train=True):
         """
         loss function
 
-        This is for one-hot or multi one-hot prediction.
+        This function is for one output, multi outputs and for one-hot prediction.
         If you want to use multi-label prediction, you should rewrite this function.
 
         Parameters
         ----------
-        y_predicted : tf.Tensor
-            with shape (None, m, n) or (None, m)
-        y_desired : tf.Tensor
-            with shape (None, m, n) or (None, m)
+        ys_predicted : list[tf.Tensor], tf.Tensor
+            each with shape (None, m)
+        ys_desired : list[tf.Tensor], tf.Tensor
+            each with shape (None, m)
         train : bool
             True for training, False for validation
 
@@ -228,47 +234,60 @@ class BaseTrainer(object):
         tf.Tensor
             with shape (1, )
         """
-        res = - y_desired * tf.math.log(y_predicted + tf.keras.backend.epsilon())
-        if train is True:
-            res *= self.label_weight
+        if isinstance(ys_predicted, list):
+            assert len(ys_predicted) == len(ys_desired)
+        else:
+            ys_predicted = [ys_predicted]
+            ys_desired = [ys_desired]
+        sum_res = 0
+        for i in range(len(ys_predicted)):
+            res = - ys_desired[i] * tf.math.log(ys_predicted[i] + tf.keras.backend.epsilon())
+            if train is True:
+                res *= self.label_weight
 
-        res = tf.reduce_max(res, axis=-1)
-        res = tf.reduce_mean(res)
-        return res
+            res = tf.reduce_max(res, axis=-1)
+            res = tf.reduce_mean(res)
+            sum_res += res
+        return sum_res
 
     @staticmethod
-    def acc(y_predicted, y_desired):
+    def acc(ys_predicted, ys_desired):
         """
         accuracy function
 
-        This is for one-hot or multi one-hot prediction.
+        This function is for one output, multi outputs and for one-hot prediction.
         If you want to use multi-label prediction, you should rewrite this function.
 
         Parameters
         ----------
-        y_predicted : tf.Tensor
-            with shape (None, m, n) or (None, m)
-        y_desired : tf.Tensor
-            with shape (None, m, n) or (None, m)
+        ys_predicted : list[tf.Tensor], tf.Tensor
+            each with shape (None, m)
+        ys_desired : list[tf.Tensor], tf.Tensor
+            each with shape (None, m)
 
         Returns
         -------
         tf.Tensor
-            with shape (None, 1)
+            with shape (None, 1). When multi outputs, only while all outputs is True, the response will be True
         """
-        y_ = tf.argmax(y_predicted, axis=-1)
-        y = tf.argmax(y_desired, axis=-1)
-        if len(y_predicted.shape) == 3:
-            res = tf.reduce_sum(y - y_, axis=-1)
-            res = tf.equal(res, tf.constant(0, tf.int64))
+        if isinstance(ys_predicted, list):
+            assert len(ys_predicted) == len(ys_desired)
         else:
-            res = tf.equal(y - y_, tf.constant(0, tf.int64))
+            ys_predicted = [ys_predicted]
+            ys_desired = [ys_desired]
+        res = 1
+        for i in range(len(ys_predicted)):
+            y_ = tf.argmax(ys_predicted[i], axis=-1)
+            y = tf.argmax(ys_desired[i], axis=-1)
+            res *= tf.cast(tf.equal(y, y_), tf.float32)
         return res
 
     @staticmethod
     def load_data(path, batch_size):
         """
         load dataset from path
+
+        if there are multiple labels, such as data and label1, label2, output dataset with be (data, label1, label2)
 
         Parameters
         ----------
@@ -282,24 +301,27 @@ class BaseTrainer(object):
         dict[str, tf.data.Dataset|int]
             a dictionary with dataset_train, dataset_val, dataset_total, step_train, step_val and step_total
         """
-        with np.load(path) as data:
-            data_train = data['data_train']
-            label_train = data['label_train']
-
-            data_val = data['data_val']
-            label_val = data['label_val']
+        with open(path, 'rb') as f:
+            data = pickle.load(f)
+            data_train: np.ndarray = data['data_train']
+            label_train: typing.Dict[str, np.ndarray] = data['label_train']
+            data_val: np.ndarray = data['data_val']
+            label_val: typing.Dict[str, np.ndarray] = data['label_val']
         data = np.concatenate((data_train, data_val), axis=0)
-        label = np.concatenate((label_train, label_val), axis=0)
+        label = {}
+        for key in label_train:
+            label[key] = np.concatenate((label_train[key], label_val[key]), axis=0)
 
-        dataset_train = tf.data.Dataset.from_tensor_slices((data_train, label_train)) \
+        dataset_train = tf.data.Dataset.from_tensor_slices(tuple([data_train] + list(label_train.values()))) \
             .shuffle(len(data_train)) \
             .batch(batch_size)
-        dataset_val = tf.data.Dataset.from_tensor_slices((data_val, label_val)).batch(batch_size)
-        dataset_total = tf.data.Dataset.from_tensor_slices((data, label)).shuffle(len(data)).batch(batch_size)
+        dataset_val = tf.data.Dataset.from_tensor_slices(tuple([data_val] + list(label_val.values()))).batch(batch_size)
+        dataset_total = tf.data.Dataset.from_tensor_slices(tuple([data] + list(label.values()))).shuffle(len(data))\
+            .batch(batch_size)
 
-        step_train = int(np.ceil(len(label_train) / batch_size))
-        step_val = int(np.ceil(len(label_val) / batch_size))
-        step_total = int(np.ceil(len(label) / batch_size))
+        step_train = int(np.ceil(len(data_train) / batch_size))
+        step_val = int(np.ceil(len(data_val) / batch_size))
+        step_total = int(np.ceil(len(data) / batch_size))
 
         data = {
             'dataset_train': dataset_train,
@@ -323,20 +345,29 @@ class BaseTrainer(object):
 
         Returns
         -------
-        np.ndarray
-            If input shape is (None, m, n) or (None, m), the label weight shape will be (m, n) or (m, )
+        dict[str, np.ndarray], np.ndarray
+            If input shape is (None, m), the label weight shape will be (m, ).
+            - dict for multi outputs
+            - array for one output
         """
-        with np.load(path) as data:
-            label_train = data['label_train']
-            label_val = data['label_val']
-        label = np.concatenate((label_train, label_val))
-        weight = np.sum(label, axis=0)
-        mask = np.where(weight == 0, 0., 1.)
-        weight += tf.keras.backend.epsilon()
+        with open(path, 'rb') as f:
+            data = pickle.load(f)
+            label_train: typing.Dict[str, np.ndarray] = data['label_train']
+            label_val: typing.Dict[str, np.ndarray] = data['label_val']
 
-        weight = np.log(np.max(weight, axis=-1, keepdims=True) / weight) + 1
-        weight *= mask
-        return weight
+        weights = {}
+        for key in label_train:
+            label = np.concatenate((label_train[key], label_val[key]))
+            weight = np.sum(label, axis=0)
+            mask = np.where(weight == 0, 0., 1.)
+            weight += tf.keras.backend.epsilon()
+
+            weight = np.log(np.max(weight, axis=-1, keepdims=True) / weight) + 1
+            weight *= mask
+            weights[key] = weight
+        if len(weights) == 1:
+            weights = list(weights.values())[0]
+        return weights
 
     def save(self, path):
         """
@@ -347,7 +378,7 @@ class BaseTrainer(object):
         path : str, Path
             The model home path
         """
-        path = str(Path(path) / f'{self.model.name}.h5')
+        path = str(pathlib.Path(path) / f'{self.model.name}.h5')
         self.model.save(path)
 
     def load(self, path):
@@ -359,5 +390,5 @@ class BaseTrainer(object):
         path : str, Path
             The model home path
         """
-        path = str(Path(path) / f'{self.model.name}.h5')
+        path = str(pathlib.Path(path) / f'{self.model.name}.h5')
         self.model = tf.keras.models.load_model(path)
