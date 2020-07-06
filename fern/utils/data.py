@@ -404,7 +404,7 @@ class FernTransformer(object):
         Returns
         -------
         dict[str, np.ndarray]
-            The transformed label and make sure using int32
+            The transformed label and make sure using float32
         """
         raise NotImplementedError
 

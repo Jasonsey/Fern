@@ -11,7 +11,7 @@ from tensorflow.keras import Model
 from fern.setting import LOGGER
 
 
-class BaseModel(object):
+class FernModel(object):
     """
     model builder
 

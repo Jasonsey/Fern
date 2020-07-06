@@ -2,6 +2,12 @@
 
 ## Version 0.3
 
+- 0.3.2 (2020-07-06)
+  - Style:
+    - Rename BaseTrainer -> FernTrainer
+  - Bug Fix:
+    - Fix trainer not fitting for multi output labels
+ 
 - 0.3.1 (2020-07-02)
   - Bug Fix:
     - Fix no user words file exist issue
