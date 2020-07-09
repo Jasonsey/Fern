@@ -2,6 +2,10 @@
 
 ## Version 0.3
 
+- 0.3.3 (2020-07-09)
+  - New Feature:
+    - Add predict function for FernModel
+    
 - 0.3.2 (2020-07-06)
   - Style:
     - Rename BaseTrainer -> FernTrainer

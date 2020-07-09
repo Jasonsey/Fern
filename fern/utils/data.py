@@ -210,7 +210,7 @@ class FernCleaner(object):
 
         Parameters
         ----------
-        row : pd.Series
+        row : pd.Series, dict
             the input data row
 
         Returns

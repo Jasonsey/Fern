@@ -76,7 +76,11 @@ class FernModel(object):
         path : str, pathlib.Path
             The model file path
         """
-        self.model = tf.keras.models.load_model(path)
+        self.model.load_weights(path)
+
+    @property
+    def predict(self):
+        return self.model.predict
 
     def __call__(self, *args, **kwargs):
         return self.model(*args, **kwargs)
