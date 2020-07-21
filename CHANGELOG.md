@@ -1,5 +1,11 @@
 # CHANGE LOG
 
+## Version 0.4
+
+- 0.4.0 (2020-07-21)
+  - New Feature:
+    - Add optimized TextCNN model as a built-in model
+
 ## Version 0.3
 
 - 0.3.3 (2020-07-09)
