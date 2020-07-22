@@ -141,7 +141,7 @@ class FernCleaner(object):
                  idx_col=None):
         self.data: typing.Optional[FernDataFrame] = None
         self.logger = setting.LOGGER
-        self.stop_words = common.read_words(stop_words)
+        self.stop_words = common.read_regex_words(stop_words)
         self.update_data = update_data
         self.data_col = data_col
         self.label_col = label_col
@@ -238,12 +238,31 @@ class FernCleaner(object):
         words = []
         for da in data:
             da = re.sub('[^a-zA-Z0-9\-_. ]', '', da)
-            if len(da) > 1 and da != ' ' and da not in self.stop_words:
+            if len(da) > 1 and da != ' ' and not self.is_stop_words(da):
                 words.append(da)
 
         if len(words) == 0:
             words = np.nan
         return words
+
+    def is_stop_words(self, word):
+        """
+        check whether a word is a stop word by RegEx
+
+        Parameters
+        ----------
+        word : str
+            a word to be checked
+
+        Returns
+        -------
+        bool
+            whether a word is a stop word
+        """
+        for reg in self.stop_words:
+            if reg.match(word):
+                return True
+        return False
 
     def save(self, path):
         """
