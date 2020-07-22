@@ -5,12 +5,65 @@
 #
 # =============================================================================
 """common function"""
+import re
 import pathlib
 
 import nltk
 import jieba
 from nltk import tokenize
 from tqdm import tqdm
+
+
+def read_words(words_path):
+    """
+    Read user words, stop words and word library from path
+
+    Lines beginning with `#` or consisting entirely of white space characters will be ignored
+
+    Parameters
+    ----------
+    words_path : str, Path, None
+        words path
+
+    Returns
+    -------
+    list[str]
+        user word list and stop word list
+    """
+    def read(path):
+        res = set()
+        with open(path, mode='r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip().lower()
+                if line and line[0] != '#':
+                    res.add(line)
+        res = list(res)
+        return res
+
+    if words_path is None or not pathlib.Path(words_path).exists():
+        words = []
+    else:
+        words = read(words_path)
+    return words
+
+
+def read_regex_words(words_path):
+    """
+    Read words written through the regex
+
+    Parameters
+    ----------
+    words_path : str, Path, None
+        words path
+
+    Returns
+    -------
+    list[re.Pattern]
+        user word list and stop word list
+    """
+    words = read_words(words_path)
+    word_reg = [re.compile(word) for word in words]
+    return word_reg
 
 
 def read_library_size(path):
@@ -28,41 +81,8 @@ def read_library_size(path):
     int
         length of the word library
     """
-    res = []
-    with open(path, mode='r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if len(line) > 0:
-                res.append(line)
-    return len(res)
-
-
-def read_words(words_path):
-    """
-    read user words, stop words and word library from path
-
-    Parameters
-    ----------
-    words_path : str, Path, None
-        words path
-
-    Returns
-    -------
-    list[str]
-        user word list and stop word list
-    """
-    def read(path):
-        with open(path, mode='r', encoding='utf-8') as f:
-            res = f.readlines()
-        res = [item.strip().lower() for item in res]
-        res = list(set(res))
-        return res
-
-    if words_path is None or not pathlib.Path(words_path).exists():
-        words = []
-    else:
-        words = read(words_path)
-    return words
+    words = read_words(path)
+    return len(words)
 
 
 def check_path(path):

@@ -2,6 +2,11 @@
 
 ## Version 0.4
 
+- 0.4.1 (2020-07-21)
+  - New Feature:
+    - Stop words use regular matching
+    - The `#` comment rule is allowed in word library
+    
 - 0.4.0 (2020-07-21)
   - New Feature:
     - Add optimized TextCNN model as a built-in model
