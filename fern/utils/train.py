@@ -303,21 +303,21 @@ class FernTrainer(object):
         """
         with open(path, 'rb') as f:
             data = pickle.load(f)
+            data_total: np.ndarray = data['data_total']
+            label_total: typing.Dict[str, np.ndarray] = data['label_total']
+
             data_train: np.ndarray = data['data_train']
             label_train: typing.Dict[str, np.ndarray] = data['label_train']
+
             data_val: np.ndarray = data['data_val']
             label_val: typing.Dict[str, np.ndarray] = data['label_val']
-        data = np.concatenate((data_train, data_val), axis=0)
-        label = {}
-        for key in label_train:
-            label[key] = np.concatenate((label_train[key], label_val[key]), axis=0)
 
         dataset_train = tf.data.Dataset.from_tensor_slices(tuple([data_train] + list(label_train.values()))) \
             .shuffle(len(data_train)) \
             .batch(batch_size)
         dataset_val = tf.data.Dataset.from_tensor_slices(tuple([data_val] + list(label_val.values()))).batch(batch_size)
-        dataset_total = tf.data.Dataset.from_tensor_slices(tuple([data] + list(label.values()))).shuffle(len(data))\
-            .batch(batch_size)
+        dataset_total = tf.data.Dataset.from_tensor_slices(tuple([data_total] + list(label_total.values())))\
+            .shuffle(len(data)).batch(batch_size)
 
         step_train = int(np.ceil(len(data_train) / batch_size))
         step_val = int(np.ceil(len(data_val) / batch_size))
@@ -352,13 +352,11 @@ class FernTrainer(object):
         """
         with open(path, 'rb') as f:
             data = pickle.load(f)
-            label_train: typing.Dict[str, np.ndarray] = data['label_train']
-            label_val: typing.Dict[str, np.ndarray] = data['label_val']
+            label_total: typing.Dict[str, np.ndarray] = data['label_total']
 
         weights = {}
-        for key in label_train:
-            label = np.concatenate((label_train[key], label_val[key]))
-            weight = np.sum(label, axis=0)
+        for key in label_total:
+            weight = np.sum(label_total[key], axis=0)
             mask = np.where(weight == 0, 0., 1.)
             weight += tf.keras.backend.epsilon()
 

@@ -7,6 +7,7 @@
 """data tools"""
 import re
 import csv
+import copy
 import json
 import pickle
 import typing
@@ -358,7 +359,7 @@ class FernTransformer(object):
 
     def transform(self, data, update_data=True):
         """
-        transform data
+        transform data frame
 
         Parameters
         ----------
@@ -369,7 +370,7 @@ class FernTransformer(object):
 
         Returns
         -------
-        tuple[np.ndarray]
+        tuple[np.ndarray, dict[str, np.ndarray]]
             The transformed word id sequence
         """
         if self.filter_data:
@@ -628,25 +629,163 @@ class FernSplitter(object):
         AssertionError
             If the data.shape[0] != label.shape[0]
         """
-        data, labels = data[data_col], data[label_col]
-        for _, label in labels.items():
-            assert len(data) == len(label)
+        data_total, label_total = data[data_col], data[label_col]
+        for _, label in label_total.items():
+            assert len(data_total) == len(label)
 
-        indexes = np.random.RandomState(self.random_state).permutation(data.shape[0])
-        i = int(data.shape[0] * self.rate_val)
+        indexes = np.random.RandomState(self.random_state).permutation(data_total.shape[0])
+        i = int(data_total.shape[0] * self.rate_val)
         indexes_val, indexes_train = indexes[:i], indexes[i:]
 
-        data_train, data_val = data[indexes_train], data[indexes_val]
+        data_train, data_val = data_total[indexes_train], data_total[indexes_val]
         label_train, label_val = {}, {}
-        for label_name, label in labels.items():
+        for label_name, label in label_total.items():
             label_train[label_name], label_val[label_name] = label[indexes_train], label[indexes_val]
 
         self.data = {
+            # data
+            f'{data_col}_total': data_total,
             f'{data_col}_train': data_train,
             f'{data_col}_val': data_val,
+            # label
+            f'{label_col}_total': label_total,
             f'{label_col}_train': label_train,
             f'{label_col}_val': label_val
         }
+
+    def save(self, path):
+        """
+        save data to path
+
+        Parameters
+        ----------
+        path : str, Path
+            path where data save
+
+        Raises
+        ------
+        ValueError
+            You should get source data before save
+        """
+        common.check_path(path)
+        if self.data is None:
+            self.logger.error('You should get source data before save')
+            raise ValueError('You should get source data before save')
+        with open(path, 'wb') as f:
+            pickle.dump(self.data, f)
+
+    def load(self, path):
+        """
+        load data from path
+
+        Parameters
+        ----------
+        path : str, Path
+            path where data save
+        """
+        with open(path, 'rb') as f:
+            self.data = pickle.load(f)
+
+
+class FernBalance(object):
+    def __init__(self, rate=None, data_col='data', label_col='label', random_state=None):
+        """
+        Class for sample balance
+
+        Parameters
+        ----------
+        rate : float, optional
+            - Over-sample target number: max(number of label samples) * rate
+            - If the number of label sample less than target number, then it will be over-sampled to target number
+            - If rate = None, than nothing will be done
+        data_col : str
+            data column name
+        label_col : str
+            label column name
+        random_state : int, optional
+            random state
+        """
+        self.rate = rate
+        self.data_col = data_col
+        self.label_col = label_col
+        self.random_state = random_state
+        self.data: typing.Optional[typing.Dict[str, typing.Union[np.ndarray, typing.Dict[str, np.ndarray]]]] = None
+        self.logger = setting.LOGGER
+
+    def balance(self, data):
+        """
+        Balance data by label weight
+
+        Parameters
+        ----------
+        data : dict[str, np.ndarray|dict[str, np.ndarray]]
+            Dictionary data to be balanced, which contains keys:
+             - data_total, data_train, data_val
+             - label_total, label_train, label_val
+        """
+        if not self.rate:
+            self.logger.warn('There is no rate provided for balance. Return source data directly.')
+            return data
+        data_total, label_total = self._balance(data[f'{self.data_col}_total'],
+                                                list(data[f'{self.label_col}_total'].values()))
+        label_total = dict(zip(data[f'{self.label_col}_total'].keys(), label_total))
+
+        data_train, label_train = self._balance(data[f'{self.data_col}_train'],
+                                                list(data[f'{self.label_col}_train'].values()))
+        label_train = dict(zip(data[f'{self.label_col}_train'].keys(), label_train))
+
+        self.data = {
+            # data
+            f'{self.data_col}_total': data_total,
+            f'{self.data_col}_train': data_train,
+            f'{self.data_col}_val': data[f'{self.data_col}_val'],
+            # label
+            f'{self.label_col}_total': label_total,
+            f'{self.label_col}_train': label_train,
+            f'{self.label_col}_val': data[f'{self.label_col}_val']
+        }
+
+    def _balance(self, data, labels):
+        """
+        Balance data and labels by weights of labels[0]
+
+        Parameters
+        ----------
+        data : np.ndarray
+            input array data
+        labels : list[np.ndarray]
+            output label array data
+
+        Returns
+        -------
+        tuple[np.ndarray, list[np.ndarray]]
+            Balanced data
+        """
+        res_data = copy.deepcopy(data)
+        res_labels = copy.deepcopy(labels)
+        label = labels[0]
+        count_label = np.sum(label, axis=0)
+        target_num = int(max(count_label) * self.rate)
+        for col_idx, num in sorted(enumerate(count_label), key=lambda item: item[1]):
+            row_idx = np.argwhere(label[:, col_idx] == 1).reshape(-1)
+            row_idx = np.random.RandomState(self.random_state).permutation(row_idx)
+            if num >= target_num or not num:
+                continue
+            repeat_times = int(target_num // num - 1)
+            copy_num = int(target_num % num)
+
+            _data: np.ndarray = data[row_idx]
+            res_data = np.concatenate((res_data, _data.repeat(repeat_times, axis=0), _data[:copy_num]))
+
+            for i in range(len(labels)):
+                _label: np.ndarray = labels[i][row_idx]
+                res_labels[i] = np.concatenate((res_labels[i], _label.repeat(repeat_times, axis=0), _label[:copy_num]))
+
+        random_idx = np.random.RandomState(self.random_state).permutation(res_data.shape[0])
+        res_data = res_data[random_idx]
+        for i in range(len(res_labels)):
+            res_labels[i] = res_labels[i][random_idx]
+        return res_data, res_labels
 
     def save(self, path):
         """
