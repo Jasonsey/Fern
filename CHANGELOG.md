@@ -1,8 +1,15 @@
 # CHANGE LOG
 
+## Version 0.5
+
+- 0.5.0 (2020-07-26)
+  - New Feature:
+    - Add FernBalance class for dataset balance
+    - Add gpu finder to find which gpu has the largest free memory
+
 ## Version 0.4
 
-- 0.4.1 (2020-07-21)
+- 0.4.1 (2020-07-22)
   - New Feature:
     - Stop words use regular matching
     - The `#` comment rule is allowed in word library

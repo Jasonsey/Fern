@@ -7,6 +7,7 @@
 """common function"""
 import re
 import pathlib
+import subprocess
 
 import nltk
 import jieba
@@ -30,6 +31,7 @@ def read_words(words_path):
     list[str]
         user word list and stop word list
     """
+
     def read(path):
         res = set()
         with open(path, mode='r', encoding='utf-8') as f:
@@ -97,6 +99,43 @@ def check_path(path):
     path = pathlib.Path(path).parent
     if not path.exists():
         path.mkdir(parents=True)
+
+
+def get_available_gpu(min_memory=0):
+    """
+    find the gpu of which free memory is largest
+
+    References
+    ----------
+    refer to link: https://stackoverflow.com/a/59571639
+
+    Parameters
+    ----------
+    min_memory : int
+        Minimum allowable memory in MB
+
+    Returns
+    -------
+    tuple[int, int] or None
+        - If there is gpu available, return (gpu index, free memory)
+        - Else return (None, 0)
+    """
+    command = "nvidia-smi --query-gpu=memory.free --format=csv"  # output: b'memory.free [MiB]\n48600 MiB\n48274 MiB\n'
+    try:
+        memory_free_info = subprocess.check_output(command.split())
+    except FileNotFoundError as e:
+        return None, 0
+    memory_info = memory_free_info.decode('ascii').split('\n')[1:-1]
+    res = []
+    for i, memory in enumerate(memory_info):
+        memory = int(memory.split()[0])
+        if memory > min_memory:
+            res.append((i, memory))
+    res = sorted(res, key=lambda item: item[1], reverse=True)
+    if res:
+        return res[0]
+    else:
+        return None, 0
 
 
 class ProgressBar(tqdm):
