@@ -2,6 +2,12 @@
 
 ## Version 0.5
 
+- 0.5.1 (2020-07-27)
+  - Bug fix:
+    - Fix dataset_total length
+  - Style:
+    - Change loss function's `train` param to `with_label_weight`
+
 - 0.5.0 (2020-07-26)
   - New Feature:
     - Add FernBalance class for dataset balance
