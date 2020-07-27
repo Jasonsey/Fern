@@ -161,7 +161,7 @@ class FernTrainer(object):
         """
         label = labels[0] if len(labels) == 1 else list(labels)
         prediction = self.model(data)
-        loss = self.loss(prediction, label, train=False)
+        loss = self.loss(prediction, label, with_label_weight=False)
         acc = self.acc(prediction, label)
 
         self.metrics['val']['loss'].update_state(loss)
@@ -213,7 +213,7 @@ class FernTrainer(object):
         }
         return res, res['val']['acc']
 
-    def loss(self, ys_predicted, ys_desired, train=True):
+    def loss(self, ys_predicted, ys_desired, with_label_weight=True):
         """
         loss function
 
@@ -226,8 +226,8 @@ class FernTrainer(object):
             each with shape (None, m)
         ys_desired : list[tf.Tensor], tf.Tensor
             each with shape (None, m)
-        train : bool
-            True for training, False for validation
+        with_label_weight : bool
+            True for multiplying loss by label weight
 
         Returns
         -------
@@ -242,7 +242,7 @@ class FernTrainer(object):
         sum_res = 0
         for i in range(len(ys_predicted)):
             res = - ys_desired[i] * tf.math.log(ys_predicted[i] + tf.keras.backend.epsilon())
-            if train is True:
+            if with_label_weight is True:
                 res *= self.label_weight
 
             res = tf.reduce_max(res, axis=-1)
@@ -317,11 +317,11 @@ class FernTrainer(object):
             .batch(batch_size)
         dataset_val = tf.data.Dataset.from_tensor_slices(tuple([data_val] + list(label_val.values()))).batch(batch_size)
         dataset_total = tf.data.Dataset.from_tensor_slices(tuple([data_total] + list(label_total.values())))\
-            .shuffle(len(data)).batch(batch_size)
+            .shuffle(len(data_total)).batch(batch_size)
 
         step_train = int(np.ceil(len(data_train) / batch_size))
         step_val = int(np.ceil(len(data_val) / batch_size))
-        step_total = int(np.ceil(len(data) / batch_size))
+        step_total = int(np.ceil(len(data_total) / batch_size))
 
         data = {
             'dataset_train': dataset_train,
