@@ -307,7 +307,7 @@ class FernTransformer(object):
     PREFIX = [
         '<PAD>',    # 占位符
         '<ST>',     # 开始字符
-        '<ED>'      # 终止字符
+        '<ED>',     # 终止字符
         '<SEP>'     # 分割符号
     ]
 
