@@ -362,7 +362,7 @@ class FernTransformer(object):
         data[self.label_col] = data[self.label_col].map(self.transform_label)
         data = data.dropna()
 
-        data_ = np.concatenate(data[self.data_col])
+        data_ = np.concatenate(data[self.data_col].to_list())
 
         labels = {}
         label = pd.DataFrame(data[self.label_col].to_list())    # data.label_col 每一行都是字典
