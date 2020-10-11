@@ -97,21 +97,6 @@ class FernDownloader(object):
 class FernCleaner(object):
     """
     data cleaner
-
-    Parameters
-    ----------
-    stop_words : str, Path, optional
-        stop words path
-    cut_func : typing.Callable
-        a function to split sequence to word list
-    update_data : bool
-        To save the cleaned data to self.data. The default is True.
-    data_col : str
-        The column name of the input data
-    label_col : str
-        The column name of the output label
-    idx_col : str, optional
-        The index column name for source data. If not provided, the output columns will not contain index column.
     """
     def __init__(self,
                  stop_words=None,
@@ -120,6 +105,22 @@ class FernCleaner(object):
                  data_col='data',
                  label_col='label',
                  idx_col=None):
+        """
+        Parameters
+        ----------
+        stop_words : str, Path, optional
+            stop words path
+        cut_func : typing.Callable
+            a function to split sequence to word list. If you want to use user_words, please define here
+        update_data : bool
+            To save the cleaned data to self.data. The default is True.
+        data_col : str
+            The column name of the input data
+        label_col : str
+            The column name of the output label
+        idx_col : str, optional
+            The index column name for source data. If not provided, the output columns will not contain index column.
+        """
         self.data: Optional[FernDataFrame] = None
         self.logger = setting.LOGGER
         self.stop_words = common.read_regex_words(stop_words)
@@ -307,6 +308,7 @@ class FernTransformer(object):
         '<PAD>',    # 占位符
         '<ST>',     # 开始字符
         '<ED>'      # 终止字符
+        '<SEP>'     # 分割符号
     ]
 
     def __init__(self,
