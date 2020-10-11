@@ -2,6 +2,10 @@
 
 ## Version 0.6
 
+- 0.6.1 (2020-10-11)
+    - Bug Fix:
+        - No longer to delete character '<' and '>' for keeping special words like <SEP>
+
 - 0.6.0 (2020-10-11)
     - New Feature:
         - Let FernDownloader download data from sql via SQLAlchemy

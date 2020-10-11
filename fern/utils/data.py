@@ -219,7 +219,7 @@ class FernCleaner(object):
         data = self.cut_func(string)
         words = []
         for da in data:
-            da = re.sub('[^a-zA-Z0-9\-_.\u4e00-\u9fa5 ]', '', da)    # delete all unimportant words
+            da = re.sub('[^a-zA-Z0-9\-_.\u4e00-\u9fa5<> ]', '', da)    # delete all unimportant words
             if len(da) > 1 and da != ' ' and not self.is_stop_words(da):
                 words.append(da)
 
