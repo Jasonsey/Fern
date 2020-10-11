@@ -169,4 +169,14 @@ class Sequence2Words(object):
             raise ValueError(f'Not support for language: {language}')
 
     def __call__(self, text):
-        return self.cut_func(text)
+        """
+        if a string start like '<ST>', it will recognize as a word
+        """
+        texts = re.split(r'(<[A-Z]+>)', text)
+        res = []
+        for text in texts:
+            if re.match(r'<[A-Z]+>', text):
+                res.append(text)
+            else:
+                res.extend(self.cut_func(text))
+        return res
