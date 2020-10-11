@@ -10,13 +10,12 @@ import csv
 import copy
 import json
 import pickle
-import typing
 import pathlib
+from typing import *
 
-import pymssql
-import pymysql
 import numpy as np
 import pandas as pd
+from sqlalchemy import create_engine
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 from fern import setting
@@ -59,31 +58,28 @@ class FernDataFrame(pd.DataFrame):
             path where data save
         """
         common.check_path(path)
-        self.to_csv(path, index=False, encoding='utf-8-sig', quoting=csv.QUOTE_NONNUMERIC)
+        self.to_csv(path, index=True, encoding='utf-8-sig', quoting=csv.QUOTE_NONNUMERIC)
 
 
 class FernDownloader(object):
-    def __init__(self, host, user, password):
+    def __init__(self, url):
         """
         data downloader
 
         Parameters
         ----------
-        host : str
-                sql server host
-        user : str
-            user name
-        password : str
-            user password
-        """
-        self.data: typing.Optional[FernDataFrame] = None
-        self.host = host
-        self.user = user
-        self.password = password
+        url: str
+            The string form of the URL is dialect[+driver]://user:password@host/dbname[?key=value..]
 
-    def read_msssql(self, sql, index=None, drop=False):
-        conn = pymssql.connect(host=self.host, user=self.user, password=self.password, charset=r'utf8')
-        df = pd.read_sql(sql, conn)
+        Examples
+        --------
+        downloader = FernDownloader('mysql+pymysql://user:passwd@hostname/dbname?charset=utf8mb4')
+        """
+        self.engine = create_engine(url)
+        self.data: Optional[FernDataFrame] = None
+
+    def read_sql(self, sql, index=None, drop=False):
+        df = pd.read_sql(sql, self.engine)
         df = FernDataFrame(df)
 
         if drop:
@@ -92,22 +88,6 @@ class FernDownloader(object):
             self.data = df
         else:
             self.data = df.set_index(index)
-        conn.close()
-        return self
-
-    def read_mysql(self, sql, index=None, drop=False):
-        conn = pymysql.connect(host=self.host, user=self.user, password=self.password, charset=r'utf8')
-        df = pd.read_sql(sql, conn)
-        df = FernDataFrame(df)
-
-        if drop:
-            df = df.dropna()
-        if index is None:
-            self.data = df
-        else:
-            self.data = df.dropna().set_index(index)
-        conn.close()
-        return self
 
     def save(self, path):
         """save data frame into csv"""
@@ -117,21 +97,6 @@ class FernDownloader(object):
 class FernCleaner(object):
     """
     data cleaner
-
-    Parameters
-    ----------
-    stop_words : str, Path, optional
-        stop words path
-    cut_func : typing.Callable
-        a function to split sequence to word list
-    update_data : bool
-        To save the cleaned data to self.data. The default is True.
-    data_col : str
-        The column name of the input data
-    label_col : str
-        The column name of the output label
-    idx_col : str, optional
-        The index column name for source data. If not provided, the output columns will not contain index column.
     """
     def __init__(self,
                  stop_words=None,
@@ -140,7 +105,23 @@ class FernCleaner(object):
                  data_col='data',
                  label_col='label',
                  idx_col=None):
-        self.data: typing.Optional[FernDataFrame] = None
+        """
+        Parameters
+        ----------
+        stop_words : str, Path, optional
+            stop words path
+        cut_func : typing.Callable
+            a function to split sequence to word list. If you want to use user_words, please define here
+        update_data : bool
+            To save the cleaned data to self.data. The default is True.
+        data_col : str
+            The column name of the input data
+        label_col : str
+            The column name of the output label
+        idx_col : str, optional
+            The index column name for source data. If not provided, the output columns will not contain index column.
+        """
+        self.data: Optional[FernDataFrame] = None
         self.logger = setting.LOGGER
         self.stop_words = common.read_regex_words(stop_words)
         self.update_data = update_data
@@ -238,7 +219,7 @@ class FernCleaner(object):
         data = self.cut_func(string)
         words = []
         for da in data:
-            da = re.sub('[^a-zA-Z0-9\-_. ]', '', da)
+            da = re.sub('[^a-zA-Z0-9\-_.\u4e00-\u9fa5 ]', '', da)    # delete all unimportant words
             if len(da) > 1 and da != ' ' and not self.is_stop_words(da):
                 words.append(da)
 
@@ -304,7 +285,7 @@ class FernTransformer(object):
         Path to word library
     label_path : str
         Path to label data
-    output_shape : dict[str, int], list[int], tuple[int], optional
+    output_shape : Optional[Dict[str, Union[List[int], int]]]
         output shape of label for transforming label.
         you don't have to defined it if you don't use it to transform label
     min_len : int
@@ -327,6 +308,7 @@ class FernTransformer(object):
         '<PAD>',    # 占位符
         '<ST>',     # 开始字符
         '<ED>'      # 终止字符
+        '<SEP>'     # 分割符号
     ]
 
     def __init__(self,
@@ -340,7 +322,7 @@ class FernTransformer(object):
                  data_col='data',
                  label_col='label',
                  filter_data=True):
-        self.data: typing.Optional[typing.Dict[str, typing.Union[np.ndarray, typing.Dict[str, np.ndarray]]]] = None
+        self.data: Optional[Dict[str, Union[np.ndarray, Dict[str, np.ndarray]]]] = None
 
         self.data_col = data_col
         self.label_col = label_col
@@ -380,7 +362,7 @@ class FernTransformer(object):
         data[self.label_col] = data[self.label_col].map(self.transform_label)
         data = data.dropna()
 
-        data_ = np.concatenate(data[self.data_col])
+        data_ = np.concatenate(data[self.data_col].to_list())
 
         labels = {}
         label = pd.DataFrame(data[self.label_col].to_list())    # data.label_col 每一行都是字典
@@ -605,7 +587,7 @@ class FernTransformer(object):
 class FernSplitter(object):
     """split data into train data and val data"""
     def __init__(self, rate_val, random_state=None):
-        self.data: typing.Optional[typing.Dict[str, typing.Union[np.ndarray, typing.Dict[str, np.ndarray]]]] = None
+        self.data: Optional[Dict[str, Union[np.ndarray, Dict[str, np.ndarray]]]] = None
 
         self.rate_val = rate_val
         self.random_state = random_state
@@ -709,7 +691,7 @@ class FernBalance(object):
         self.data_col = data_col
         self.label_col = label_col
         self.random_state = random_state
-        self.data: typing.Optional[typing.Dict[str, typing.Union[np.ndarray, typing.Dict[str, np.ndarray]]]] = None
+        self.data: Optional[Dict[str, Union[np.ndarray, Dict[str, np.ndarray]]]] = None
         self.logger = setting.LOGGER
 
     def balance(self, data):
