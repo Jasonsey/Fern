@@ -273,6 +273,7 @@ class FernCleaner(object):
         """
         data = pd.read_csv(path, index_col=self.idx_col)
         data[self.label_col] = data[self.label_col].map(eval)
+        data[self.data_col] = data[self.data_col].map(eval)
         self.data = data
 
 
