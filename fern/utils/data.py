@@ -98,6 +98,7 @@ class FernCleaner(object):
     """
     data cleaner
     """
+
     def __init__(self,
                  stop_words=None,
                  cut_func=None,
@@ -219,7 +220,7 @@ class FernCleaner(object):
         data = self.cut_func(string)
         words = []
         for da in data:
-            da = re.sub('[^a-zA-Z0-9\-_.\u4e00-\u9fa5<> ]', '', da)    # delete all unimportant words
+            da = re.sub('[^a-zA-Z0-9\-_.\u4e00-\u9fa5<> ]', '', da)  # delete all unimportant words
             if len(da) > 1 and da != ' ' and not self.is_stop_words(da):
                 words.append(da)
 
@@ -305,10 +306,10 @@ class FernTransformer(object):
         Whether to delete the input data which the sentence length is greater than max_len or less than min_len
     """
     PREFIX = [
-        '<PAD>',    # 占位符
-        '<ST>',     # 开始字符
-        '<ED>',     # 终止字符
-        '<SEP>'     # 分割符号
+        '<PAD>',  # 占位符
+        '<ST>',  # 开始字符
+        '<ED>',  # 终止字符
+        '<SEP>'  # 分割符号
     ]
 
     def __init__(self,
@@ -365,7 +366,7 @@ class FernTransformer(object):
         data_ = np.concatenate(data[self.data_col].to_list())
 
         labels = {}
-        label = pd.DataFrame(data[self.label_col].to_list())    # data.label_col 每一行都是字典
+        label = pd.DataFrame(data[self.label_col].to_list())  # data.label_col 每一行都是字典
         for col in label.columns:
             labels[col] = np.concatenate(label[col])
 
@@ -391,7 +392,7 @@ class FernTransformer(object):
             The transformed word id sequence
         """
         data = [self.word2id[word] for word in data if word in self.word2id]
-        data = pad_sequences([data], maxlen=self.max_len, padding='post')       # pad after each sequence
+        data = pad_sequences([data], maxlen=self.max_len, padding='post')  # pad after each sequence
         return data
 
     def transform_label(self, label):
@@ -456,7 +457,7 @@ class FernTransformer(object):
             raise ValueError('No data is provided.')
 
         label_data = {}
-        df_label = pd.DataFrame(data[self.label_col].to_list())    # data.label_col每一行都是字典
+        df_label = pd.DataFrame(data[self.label_col].to_list())  # data.label_col每一行都是字典
         for col in df_label.columns:
             tmp = set()
             df_label[col].map(lambda x: tmp.update(x))
@@ -481,9 +482,7 @@ class FernTransformer(object):
             The word to id dictionary
         """
         if pathlib.Path(self.word_path).exists():
-            with open(self.word_path, 'r', encoding='utf-8') as f:
-                words = f.readlines()
-                words = [word.strip().lower() for word in words]
+            words = common.read_words(self.word_path)
         else:
             words = self.reload_word_library(data)
         word2id = dict(zip(words, range(len(words))))
@@ -512,7 +511,15 @@ class FernTransformer(object):
             raise ValueError('No data is provided.')
 
         words = []
-        _ = data[self.data_col].map(words.extend)
+        words_append = words.append
+
+        def _map_func(word_list):
+            for word in word_list:
+                word = word.strip().lower()
+                if word and word[0] != '#':
+                    words_append(word)
+
+        _ = data[self.data_col].map(_map_func)
         words = pd.Series(words).value_counts()
         words = words[words >= self.max_freq]
         words = list(words.index)
@@ -537,6 +544,7 @@ class FernTransformer(object):
         pd.DataFrame
             the filtered data frame
         """
+
         def __filter_func(item):
             """
             to filter data
@@ -553,6 +561,7 @@ class FernTransformer(object):
             """
             item = [word for word in item if word in self.word2id]
             return self.min_len <= len(item) <= self.max_len
+
         return data[data[self.data_col].map(__filter_func)]
 
     def save(self, path):
@@ -586,6 +595,7 @@ class FernTransformer(object):
 
 class FernSplitter(object):
     """split data into train data and val data"""
+
     def __init__(self, rate_val, random_state=None):
         self.data: Optional[Dict[str, Union[np.ndarray, Dict[str, np.ndarray]]]] = None
 
