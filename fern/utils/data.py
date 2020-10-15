@@ -524,6 +524,9 @@ class FernTransformer(object):
         words = pd.Series(words).value_counts()
         words = words[words >= self.max_freq]
         words = list(words.index)
+
+        words = [word for word in words if word.upper() not in self.PREFIX]
+
         words = self.PREFIX + words
 
         data = '\n'.join(words)
