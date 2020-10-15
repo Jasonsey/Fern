@@ -2,6 +2,13 @@
 
 ## Version 0.6
 
+- 0.6.2 (2020-10-15)
+    - Bug Fix:
+        - Prefix code type error
+        - Data and label column name error while training
+        - Data type error while loading data from disk
+        - Repeat prefix code
+
 - 0.6.1 (2020-10-11)
     - Bug Fix:
         - No longer to delete character '<' and '>' for keeping special words like <SEP>

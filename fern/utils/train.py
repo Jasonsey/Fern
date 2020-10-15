@@ -36,8 +36,12 @@ class FernTrainer(object):
         learning rate
     batch_size : int
         batch size
+    data_col: str
+        data column name
+    label_col: str
+        label column name
     """
-    def __init__(self, model, path_data, opt='adam', lr=0.003, batch_size=64):
+    def __init__(self, model, path_data, opt='adam', lr=0.003, batch_size=64, data_col='data', label_col='label'):
         self.model = model
         self.optimizer = tf.keras.optimizers.get({
             'class_name': opt,
@@ -46,7 +50,7 @@ class FernTrainer(object):
 
         self.metrics, self.early_stop_metric = self.setup_metrics()
 
-        self.data = self.load_data(path_data, batch_size)
+        self.data = self.load_data(path_data, batch_size, data_col, label_col)
         self.label_weight = self.get_label_weight(path_data)
 
     def train(self, epochs=1, early_stop=None, mode='search'):
@@ -283,7 +287,7 @@ class FernTrainer(object):
         return res
 
     @staticmethod
-    def load_data(path, batch_size):
+    def load_data(path, batch_size, data_col, label_col):
         """
         load dataset from path
 
@@ -295,6 +299,10 @@ class FernTrainer(object):
             Points to training data in npz format
         batch_size : int
             batch size
+        data_col: str
+            data column name
+        label_col: str
+            label column name
 
         Returns
         -------
@@ -303,14 +311,14 @@ class FernTrainer(object):
         """
         with open(path, 'rb') as f:
             data = pickle.load(f)
-            data_total: np.ndarray = data['data_total']
-            label_total: typing.Dict[str, np.ndarray] = data['label_total']
+            data_total: np.ndarray = data[f'{data_col}_total']
+            label_total: typing.Dict[str, np.ndarray] = data[f'{label_col}_total']
 
-            data_train: np.ndarray = data['data_train']
-            label_train: typing.Dict[str, np.ndarray] = data['label_train']
+            data_train: np.ndarray = data[f'{data_col}_train']
+            label_train: typing.Dict[str, np.ndarray] = data[f'{label_col}_train']
 
-            data_val: np.ndarray = data['data_val']
-            label_val: typing.Dict[str, np.ndarray] = data['label_val']
+            data_val: np.ndarray = data[f'{data_col}_val']
+            label_val: typing.Dict[str, np.ndarray] = data[f'{label_col}_val']
 
         dataset_train = tf.data.Dataset.from_tensor_slices(tuple([data_train] + list(label_train.values()))) \
             .shuffle(len(data_train)) \
