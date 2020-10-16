@@ -408,7 +408,9 @@ class FernTransformer(object):
         Returns
         -------
         dict[str, np.ndarray]
-            The transformed label and make sure using float32
+            The transformed label.And Note that:
+             - Please make sure using float32
+             - Even the 2 category outputs An Array in a multi-category format
         """
         raise NotImplementedError
 
@@ -765,7 +767,7 @@ class FernBalance(object):
         for col_idx, num in sorted(enumerate(count_label), key=lambda item: item[1]):
             row_idx = np.argwhere(label[:, col_idx] == 1).reshape(-1)
             row_idx = np.random.RandomState(self.random_state).permutation(row_idx)
-            if num >= target_num or not num:
+            if num >= target_num or num < 2:
                 continue
             repeat_times = int(target_num // num - 1)
             copy_num = int(target_num % num)
