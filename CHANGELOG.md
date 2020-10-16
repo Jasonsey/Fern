@@ -2,6 +2,10 @@
 
 ## Version 0.6
 
+- 0.6.3 (2020-10-16)
+    - Bug Fix:
+        - ZeroDivisionError, while balancing data and num = 1
+
 - 0.6.2 (2020-10-15)
     - Bug Fix:
         - Prefix code type error
