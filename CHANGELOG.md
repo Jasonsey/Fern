@@ -2,6 +2,9 @@
 
 ## Version 0.6
 
+- 0.6.4 (2020-11-10)
+    - Bug Fix:
+        - Fix data set length error when there is a multi input dictionary data
 - 0.6.3 (2020-10-16)
     - Bug Fix:
         - ZeroDivisionError, while balancing data and num = 1

@@ -5,9 +5,9 @@
 #
 # =============================================================================
 """model trainer"""
-import typing
 import pickle
 import pathlib
+from typing import *
 
 import numpy as np
 import tensorflow as tf
@@ -135,7 +135,7 @@ class FernTrainer(object):
 
         Parameters
         ----------
-        data: tf.Tensor
+        data: Dict[tf.Tensor], tf.Tensor
             the input train data
         labels: tuple[tf.Tensor]
             the output train labels
@@ -311,25 +311,35 @@ class FernTrainer(object):
         """
         with open(path, 'rb') as f:
             data = pickle.load(f)
-            data_total: np.ndarray = data[f'{data_col}_total']
-            label_total: typing.Dict[str, np.ndarray] = data[f'{label_col}_total']
+            data_total: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{data_col}_total']
+            label_total: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{label_col}_total']
 
-            data_train: np.ndarray = data[f'{data_col}_train']
-            label_train: typing.Dict[str, np.ndarray] = data[f'{label_col}_train']
+            data_train: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{data_col}_train']
+            label_train: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{label_col}_train']
 
-            data_val: np.ndarray = data[f'{data_col}_val']
-            label_val: typing.Dict[str, np.ndarray] = data[f'{label_col}_val']
+            data_val: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{data_col}_val']
+            label_val: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{label_col}_val']
 
-        dataset_train = tf.data.Dataset.from_tensor_slices(tuple([data_train] + list(label_train.values()))) \
-            .shuffle(len(data_train)) \
+        if isinstance(data_total, dict):
+            # multi input
+            len_total = list(data_total.values())[0].shape[0]
+            len_train = list(data_train.values())[0].shape[0]
+            len_val = list(data_val.values())[0].shape[0]
+        else:
+            # single input
+            len_total = data_total.shape[0]
+            len_train = data_train.shape[0]
+            len_val = data_val.shape[0]
+
+        dataset_train = tf.data.Dataset.from_tensor_slices(tuple([data_train] + list(label_train.values()))).shuffle(len(len_train))\
             .batch(batch_size)
         dataset_val = tf.data.Dataset.from_tensor_slices(tuple([data_val] + list(label_val.values()))).batch(batch_size)
-        dataset_total = tf.data.Dataset.from_tensor_slices(tuple([data_total] + list(label_total.values())))\
-            .shuffle(len(data_total)).batch(batch_size)
+        dataset_total = tf.data.Dataset.from_tensor_slices(tuple([data_total] + list(label_total.values()))).shuffle(len(len_total))\
+            .batch(batch_size)
 
-        step_train = int(np.ceil(len(data_train) / batch_size))
-        step_val = int(np.ceil(len(data_val) / batch_size))
-        step_total = int(np.ceil(len(data_total) / batch_size))
+        step_train = int(np.ceil(len(len_train) / batch_size))
+        step_val = int(np.ceil(len(len_val) / batch_size))
+        step_total = int(np.ceil(len(len_total) / batch_size))
 
         data = {
             'dataset_train': dataset_train,
@@ -360,7 +370,7 @@ class FernTrainer(object):
         """
         with open(path, 'rb') as f:
             data = pickle.load(f)
-            label_total: typing.Dict[str, np.ndarray] = data['label_total']
+            label_total: Dict[str, np.ndarray] = data['label_total']
 
         weights = {}
         for key in label_total:
