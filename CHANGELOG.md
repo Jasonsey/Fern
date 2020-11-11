@@ -1,10 +1,20 @@
 # CHANGE LOG
 
+## Version 0.7
+
+- 0.7.0 (2020-11-11)
+    - New Feature:
+        - Support multi inputs and outputs with dictionary format data
+        - Label weight is no longer recommended, but dataset balancing is
+    - Style:
+        - Use a stub file to annotate the parameter types of the file `train.py`
+
 ## Version 0.6
 
 - 0.6.4 (2020-11-10)
     - Bug Fix:
         - Fix data set length error when there is a multi input dictionary data
+
 - 0.6.3 (2020-10-16)
     - Bug Fix:
         - ZeroDivisionError, while balancing data and num = 1

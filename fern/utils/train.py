@@ -15,33 +15,24 @@ from tensorflow.keras.metrics import Metric
 
 from fern.setting import LOGGER
 from .common import ProgressBar
-from .model import FernModel
 
 
 class FernTrainer(object):
-    """
-    model trainer
-
-    This can be used in one output and multi outputs
-
-    Parameters
-    ----------
-    model : FernModel
-        the model to be trained
-    path_data : str, Path
-        Points to training data in npz format
-    opt : str
-        the name of optimizer
-    lr : float
-        learning rate
-    batch_size : int
-        batch size
-    data_col: str
-        data column name
-    label_col: str
-        label column name
-    """
     def __init__(self, model, path_data, opt='adam', lr=0.003, batch_size=64, data_col='data', label_col='label'):
+        """
+        model trainer
+
+        This can be used in one output and multi outputs
+
+        Args:
+            model: the model to be trained
+            path_data: Points to training data in npz format
+            opt: the name of optimizer
+            lr: learning rate
+            batch_size: batch size
+            data_col: data column name
+            label_col: label column name
+        """
         self.model = model
         self.optimizer = tf.keras.optimizers.get({
             'class_name': opt,
@@ -51,26 +42,21 @@ class FernTrainer(object):
         self.metrics, self.early_stop_metric = self.setup_metrics()
 
         self.data = self.load_data(path_data, batch_size, data_col, label_col)
-        self.label_weight = self.get_label_weight(path_data)
 
     def train(self, epochs=1, early_stop=None, mode='search'):
         """
         train the model
 
-        Parameters
-        ----------
-        epochs : int
-            epoch number
-        early_stop : int, optional
-            - If None, no early stop will be used.
-            - If is number, after number times no update, will stop training early.
-        mode : str
-            - search: train model with data_train
-            - server: train model with data_train and data_val
+        Args:
+            epochs: epoch number
+            early_stop:
+                If None, no early stop will be used.
+                If is number, after number times no update, will stop training early.
+            mode:
+                search: train model with data_train
+                server: train model with data_train and data_val
 
-        Returns
-        -------
-        (float, int)
+        Returns:
             (best_score, best_epoch)
         """
         if mode == 'server':
@@ -90,11 +76,11 @@ class FernTrainer(object):
                     self.metrics[stage][metric].reset_states()
             number += 1
 
-            for items_train in ProgressBar(dataset, desc='Train: ', total=total):
-                self.train_step(*items_train)
+            for data, label in ProgressBar(dataset, desc='Train: ', total=total):
+                self.train_step(data, label)
 
-            for items_val in ProgressBar(self.data['dataset_val'], desc='Val: ', total=self.data['step_val']):
-                self.val_step(*items_val)
+            for data, label in ProgressBar(self.data['dataset_val'], desc='Val: ', total=self.data['step_val']):
+                self.val_step(data, label)
 
             stop_flag = False
             if early_stop is None:
@@ -129,44 +115,36 @@ class FernTrainer(object):
         return best_score, best_epoch
 
     @tf.function
-    def train_step(self, data, *labels):
+    def train_step(self, data, label):
         """
         train one step
 
-        Parameters
-        ----------
-        data: Dict[tf.Tensor], tf.Tensor
-            the input train data
-        labels: tuple[tf.Tensor]
-            the output train labels
+        Args:
+            data: the input train data
+            label: the output train labels
         """
-        label = labels[0] if len(labels) == 1 else list(labels)
         with tf.GradientTape() as tape:
             prediction = self.model(data)
-            loss = self.loss(prediction, label)
+            loss = self.loss(label, prediction)
         gradients = tape.gradient(loss, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
-        acc = self.acc(prediction, label)
+        acc = self.acc(label, prediction)
 
         self.metrics['train']['loss'].update_state(loss)
         self.metrics['train']['acc'].update_state(acc)
 
     @tf.function
-    def val_step(self, data, *labels):
+    def val_step(self, data, label):
         """
         val one step
 
-        Parameters
-        ----------
-        data: tf.Tensor
-            the input train data
-        labels: tuple[tf.Tensor]
-            the output train labels
+        Args:
+            data: the input train data
+            label: the output train labels
         """
-        label = labels[0] if len(labels) == 1 else list(labels)
         prediction = self.model(data)
-        loss = self.loss(prediction, label, with_label_weight=False)
-        acc = self.acc(prediction, label)
+        loss = self.loss(label, prediction)
+        acc = self.acc(label, prediction)
 
         self.metrics['val']['loss'].update_state(loss)
         self.metrics['val']['acc'].update_state(acc)
@@ -217,73 +195,61 @@ class FernTrainer(object):
         }
         return res, res['val']['acc']
 
-    def loss(self, ys_predicted, ys_desired, with_label_weight=True):
+    @staticmethod
+    def loss(ys_desired, ys_predicted):
         """
         loss function
 
-        This function is for one output, multi outputs and for one-hot prediction.
-        If you want to use multi-label prediction, you should rewrite this function.
+        suitable for:
+            1. single label (If it is 2 category case, then you also need to convert to one-hot format)
+            2. single output (array), multiple output (dict[str, array])
+        not suitable for:
+            1. multiple label (you should change the loss function)
 
-        Parameters
-        ----------
-        ys_predicted : list[tf.Tensor], tf.Tensor
-            each with shape (None, m)
-        ys_desired : list[tf.Tensor], tf.Tensor
-            each with shape (None, m)
-        with_label_weight : bool
-            True for multiplying loss by label weight
+        Args:
+            ys_desired: each with shape (None, m)
+            ys_predicted: each with shape (None, m)
 
-        Returns
-        -------
-        tf.Tensor
-            with shape (1, )
+        Returns:
+            with shape ()
         """
-        if isinstance(ys_predicted, list):
-            assert len(ys_predicted) == len(ys_desired)
-        else:
-            ys_predicted = [ys_predicted]
-            ys_desired = [ys_desired]
-        sum_res = 0
-        for i in range(len(ys_predicted)):
-            res = - ys_desired[i] * tf.math.log(ys_predicted[i] + tf.keras.backend.epsilon())
-            if with_label_weight is True:
-                res *= self.label_weight
+        if isinstance(ys_desired, tf.Tensor):
+            ys_predicted = {'label': ys_predicted}
+            ys_desired = {'label': ys_desired}
 
-            res = tf.reduce_max(res, axis=-1)
-            res = tf.reduce_mean(res)
+        sum_res = 0
+        for key in ys_desired:
+            # if use multi label output, change to tf.losses.binary_crossentropy
+            res = tf.losses.categorical_crossentropy(ys_desired[key], ys_predicted[key])
             sum_res += res
+        sum_res = tf.reduce_mean(sum_res)
         return sum_res
 
     @staticmethod
-    def acc(ys_predicted, ys_desired):
+    def acc(ys_desired, ys_predicted):
         """
         accuracy function
 
         This function is for one output, multi outputs and for one-hot prediction.
         If you want to use multi-label prediction, you should rewrite this function.
 
-        Parameters
-        ----------
-        ys_predicted : list[tf.Tensor], tf.Tensor
-            each with shape (None, m)
-        ys_desired : list[tf.Tensor], tf.Tensor
-            each with shape (None, m)
+        Args:
+            ys_desired: each with shape (None, m)
+            ys_predicted: each with shape (None, m)
 
-        Returns
-        -------
-        tf.Tensor
+        Returns:
             with shape (None, 1). When multi outputs, only while all outputs is True, the response will be True
         """
-        if isinstance(ys_predicted, list):
-            assert len(ys_predicted) == len(ys_desired)
-        else:
-            ys_predicted = [ys_predicted]
-            ys_desired = [ys_desired]
+        if isinstance(ys_desired, tf.Tensor):
+            ys_predicted = {'label': ys_predicted}
+            ys_desired = {'label': ys_desired}
+
         res = 1
-        for i in range(len(ys_predicted)):
-            y_ = tf.argmax(ys_predicted[i], axis=-1)
-            y = tf.argmax(ys_desired[i], axis=-1)
-            res *= tf.cast(tf.equal(y, y_), tf.float32)
+        for key in ys_desired:
+            # if use multi label output, you should change this code block
+            y_true = tf.argmax(ys_desired[key], axis=-1)
+            y_pred = tf.argmax(ys_predicted[key], axis=-1)
+            res *= tf.cast(tf.equal(y_true, y_pred), tf.float32)
         return res
 
     @staticmethod
@@ -291,7 +257,9 @@ class FernTrainer(object):
         """
         load dataset from path
 
-        if there are multiple labels, such as data and label1, label2, output dataset with be (data, label1, label2)
+        if there are multiple labels or data, for example data={'col1': data1, 'col2': data2}
+        and label={'col3': label1, 'col4': label2}, then the output of the data set will be dict too, which looks like
+        data_batch={'col1': data1, 'col2': data2} and label_batch={'col3': label1, 'col4': label2}
 
         Parameters
         ----------
@@ -331,10 +299,10 @@ class FernTrainer(object):
             len_train = data_train.shape[0]
             len_val = data_val.shape[0]
 
-        dataset_train = tf.data.Dataset.from_tensor_slices(tuple([data_train] + list(label_train.values()))).shuffle(len(len_train))\
+        dataset_train = tf.data.Dataset.from_tensor_slices((data_train, label_train)).shuffle(len(len_train))\
             .batch(batch_size)
-        dataset_val = tf.data.Dataset.from_tensor_slices(tuple([data_val] + list(label_val.values()))).batch(batch_size)
-        dataset_total = tf.data.Dataset.from_tensor_slices(tuple([data_total] + list(label_total.values()))).shuffle(len(len_total))\
+        dataset_val = tf.data.Dataset.from_tensor_slices((data_val, label_val)).batch(batch_size)
+        dataset_total = tf.data.Dataset.from_tensor_slices((data_total, label_total)).shuffle(len(len_total))\
             .batch(batch_size)
 
         step_train = int(np.ceil(len(len_train) / batch_size))
@@ -350,40 +318,6 @@ class FernTrainer(object):
             'step_total': step_total,
         }
         return data
-
-    @staticmethod
-    def get_label_weight(path):
-        """
-        read label weight from the path where data in npz format was stored
-
-        Parameters
-        ----------
-        path : str, Path, optional
-            Points to training data in npz format
-
-        Returns
-        -------
-        dict[str, np.ndarray], np.ndarray
-            If input shape is (None, m), the label weight shape will be (m, ).
-            - dict for multi outputs
-            - array for one output
-        """
-        with open(path, 'rb') as f:
-            data = pickle.load(f)
-            label_total: Dict[str, np.ndarray] = data['label_total']
-
-        weights = {}
-        for key in label_total:
-            weight = np.sum(label_total[key], axis=0)
-            mask = np.where(weight == 0, 0., 1.)
-            weight += tf.keras.backend.epsilon()
-
-            weight = np.log(np.max(weight, axis=-1, keepdims=True) / weight) + 1
-            weight *= mask
-            weights[key] = weight
-        if len(weights) == 1:
-            weights = list(weights.values())[0]
-        return weights
 
     def save(self, path):
         """
