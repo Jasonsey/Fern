@@ -213,6 +213,7 @@ class FernTrainer(object):
         Returns:
             with shape ()
         """
+        assert type(ys_desired) is type(ys_predicted), 'Please make sure ys_desired and ys_predicted have same type'
         if isinstance(ys_desired, tf.Tensor):
             ys_predicted = {'label': ys_predicted}
             ys_desired = {'label': ys_desired}
@@ -240,6 +241,7 @@ class FernTrainer(object):
         Returns:
             with shape (None, 1). When multi outputs, only while all outputs is True, the response will be True
         """
+        assert type(ys_desired) is type(ys_predicted), 'Please make sure ys_desired and ys_predicted have same type'
         if isinstance(ys_desired, tf.Tensor):
             ys_predicted = {'label': ys_predicted}
             ys_desired = {'label': ys_desired}
@@ -299,15 +301,15 @@ class FernTrainer(object):
             len_train = data_train.shape[0]
             len_val = data_val.shape[0]
 
-        dataset_train = tf.data.Dataset.from_tensor_slices((data_train, label_train)).shuffle(len(len_train))\
+        dataset_train = tf.data.Dataset.from_tensor_slices((data_train, label_train)).shuffle(len_train)\
             .batch(batch_size)
         dataset_val = tf.data.Dataset.from_tensor_slices((data_val, label_val)).batch(batch_size)
-        dataset_total = tf.data.Dataset.from_tensor_slices((data_total, label_total)).shuffle(len(len_total))\
+        dataset_total = tf.data.Dataset.from_tensor_slices((data_total, label_total)).shuffle(len_total)\
             .batch(batch_size)
 
-        step_train = int(np.ceil(len(len_train) / batch_size))
-        step_val = int(np.ceil(len(len_val) / batch_size))
-        step_total = int(np.ceil(len(len_total) / batch_size))
+        step_train = int(np.ceil(len_train / batch_size))
+        step_val = int(np.ceil(len_val / batch_size))
+        step_total = int(np.ceil(len_total / batch_size))
 
         data = {
             'dataset_train': dataset_train,
