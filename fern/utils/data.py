@@ -12,6 +12,7 @@ import json
 import pickle
 import pathlib
 from typing import *
+from multiprocessing import Pool
 
 import numpy as np
 import pandas as pd
@@ -40,7 +41,9 @@ class FernSeries(pd.Series):
             func: called to preprocess data
             processes: how many cpu to be used, default use all cpu
         """
-        pass
+        with Pool(processes) as pool:
+            new_array = pool.map(func, self.array)
+        self.update(FernSeries(data=new_array, index=self.index))
 
 
 class FernDataFrame(pd.DataFrame):
@@ -109,7 +112,7 @@ class FernCleaner(object):
     data: Optional[FernDataFrame]
 
     def __init__(self,
-                 stop_words: Optional[str, pathlib.Path] = None,
+                 stop_words: Optional[Union[str, pathlib.Path]] = None,
                  cut_func: Optional[Callable[[str], List]] = None,
                  update_data: bool = True,
                  data_col: str = 'data',
