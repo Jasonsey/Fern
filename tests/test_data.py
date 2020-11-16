@@ -21,18 +21,26 @@ class TestFernSeries(object):
         data_0 = FernSeries(data=self.data_0, index=self.idx)
         data_1 = FernSeries(data=self.data_1, index=self.idx)
 
-        res_0_pred = data_0.parallel_map(self.square, 2)
+        res_0_pred = data_0.parallel_map(self.square, processes=2)
         res_0_true = data_0.map(self.square)
         assert np.all(res_0_pred == res_0_true)
 
+        res_1_pred = data_0.parallel_map(self.multiply, args=(3,), processes=2)
+        res_1_true = data_0.map(lambda x: self.multiply(x, 3))
+        assert np.all(res_0_pred == res_0_true)
+
         try:
-            data_1.parallel_map(self.square, 2)
+            data_1.parallel_map(self.square, processes=2)
         except TypeError as err:
             pass
 
     @staticmethod
     def square(x):
         return x ** 2
+
+    @staticmethod
+    def multiply(x, y):
+        return x * y
 
 
 class TestFernDataFrame(object):
