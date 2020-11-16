@@ -2,6 +2,15 @@
 
 ## Version 0.8
 
+- 0.8.1 (2020-11-16)
+    - Fix Bug:
+        - Map function error without send a function
+    - New Feature:
+        - Support `parallel_apply` for FernDataFrame
+        - Update FernCleaner to process data with parallel process
+    - Test:
+        - Add `test_parallel_apply` method to test `parallel_apply`
+
 - 0.8.0 (2020-11-16)
     - New Feature:
         - Support `parallel_map` for FernSeries
