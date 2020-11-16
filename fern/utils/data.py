@@ -35,11 +35,14 @@ class FernSeries(pd.Series):
 
     def parallel_map(self, func: Callable, processes: Optional[int] = None):
         """
-        map functions that use multicore processes
+        map method that use multiple processes
 
         Args:
             func: called to preprocess data
             processes: how many cpu to be used, default use all cpu
+
+        Returns:
+            processed series
         """
         with Pool(processes) as pool:
             new_array = pool.map(func, self.array)
@@ -61,6 +64,24 @@ class FernDataFrame(pd.DataFrame):
     @property
     def _constructor_sliced(self):
         return FernSeries
+
+    def parallel_apply(self, func: Callable[[Dict], Any], axis: int = 1, processes: Optional[int] = None) -> FernSeries:
+        """
+        apply method which uses multiple processes
+
+        Args:
+            func: Function to apply to each column or row.
+            axis: Axis along which the function is applied
+                * 0: apply function to each column.
+                * 1: apply function to each row.
+            processes: how many cpu to be used, default use all cpu
+
+        Returns:
+            processed series
+        """
+        data: FernSeries = self.apply(lambda x: x.to_dict(), axis=axis)
+        res = data.parallel_map(func=func, processes=processes)
+        return res
 
     def save(self, path):
         """
@@ -146,7 +167,7 @@ class FernCleaner(object):
             u'＊・，。！？【】（）％＃＠＆１２３４５６７８９０、；—：■　ａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ',
             u'*·,.!?[]()%#@&1234567890.;-:￭ abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')}
 
-    def clean(self, data: pd.DataFrame) -> FernDataFrame:
+    def clean(self, data: Union[pd.DataFrame, FernDataFrame]) -> FernDataFrame:
         """
         clean data main entry
 :
@@ -156,15 +177,18 @@ class FernCleaner(object):
         Returns:
             cleaned data with columns, data_col and label_col
         """
+        if isinstance(data, pd.DataFrame):
+            data = FernDataFrame(data)
+
         if self.idx_col is not None and data.index.name != self.idx_col:
             data = data.set_index(self.idx_col)
 
-        data[self.data_col] = data.apply(self.clean_data, axis=1)
+        data[self.data_col] = data.parallel_apply(self.clean_data, axis=1)
         self.logger.debug('All raw data has been cleaned.')
-        data[self.data_col] = data[self.data_col].map()
+        data[self.data_col] = data[self.data_col].parallel_map(self.str2word)
         self.logger.debug('All cleaned data has been split into word list.')
 
-        data[self.label_col] = data.apply(self.clean_label, axis=1)
+        data[self.label_col] = data.parallel_apply(self.clean_label, axis=1)
         self.logger.debug('All label data has been cleaned.')
 
         columns = [self.data_col, self.label_col]
@@ -175,7 +199,7 @@ class FernCleaner(object):
             self.data = data
         return data
 
-    def clean_label(self, row: pd.Series) -> Dict[str, List[Union[str, int]]]:
+    def clean_label(self, row: Union[pd.Series, dict]) -> Dict[str, List[Union[str, int]]]:
         """
         clean label function for pandas apply function
 
@@ -257,8 +281,8 @@ class FernCleaner(object):
         """
         data = pd.read_csv(path)
         data = data.set_index(self.idx_col)
-        data[self.label_col] = data[self.label_col].map()
-        data[self.data_col] = data[self.data_col].map()
+        data[self.label_col] = data[self.label_col].map(eval)
+        data[self.data_col] = data[self.data_col].map(eval)
         self.data = data
 
 
@@ -321,7 +345,8 @@ class FernTransformer(object):
         self.label_data = self.read_label_data(data)
         self.logger = setting.LOGGER
 
-    def transform(self, data: pd.DataFrame, update_data: bool = True) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
+    def transform(self, data: Union[pd.DataFrame, FernDataFrame], update_data: bool = True) -> \
+            Tuple[np.ndarray, Dict[str, np.ndarray]]:
         """
         transform data frame
 
@@ -332,11 +357,14 @@ class FernTransformer(object):
         Returns:
             The transformed word id sequence
         """
+        if isinstance(data, pd.DataFrame):
+            data = FernDataFrame(data)
+
         if self.filter_data:
             data = self.filter_data_func(data)
 
-        data[self.data_col] = data[self.data_col].map()
-        data[self.label_col] = data[self.label_col].map()
+        data[self.data_col] = data[self.data_col].parallel_map(self.transform_data)
+        data[self.label_col] = data[self.label_col].parallel_map(self.transform_label)
         data = data.dropna()
 
         data_ = np.concatenate(data[self.data_col].to_list())
@@ -420,7 +448,7 @@ class FernTransformer(object):
         df_label = pd.DataFrame(data[self.label_col].to_list())  # data.label_col每一行都是字典
         for col in df_label.columns:
             tmp = set()
-            df_label[col].map()
+            df_label[col].map(lambda x: tmp.update(x))
             label_data[col] = list(tmp)
 
         with open(self.label_path, 'w') as f:
@@ -469,7 +497,7 @@ class FernTransformer(object):
                 if word and word[0] != '#':
                     words_append(word)
 
-        _ = data[self.data_col].map()
+        _ = data[self.data_col].map(_map_func)
         words = pd.Series(words).value_counts()
         words = words[words >= self.max_freq]
         words = list(words.index)
@@ -507,7 +535,7 @@ class FernTransformer(object):
             item = [word for word in item if word in self.word2id]
             return self.min_len <= len(item) <= self.max_len
 
-        return data[data[self.data_col].map()]
+        return data[data[self.data_col].map(__filter_func)]
 
     def save(self, path: Union[str, pathlib.Path]):
         """
@@ -613,6 +641,7 @@ class FernBalance(object):
     """
     Class for sample balance
     """
+
     def __init__(self, rate: Optional[float] = None,
                  data_col: str = 'data',
                  label_col: str = 'label',
