@@ -1,5 +1,13 @@
 # CHANGE LOG
 
+## Version 0.8
+
+- 0.8.0 (2020-11-16)
+    - New Feature:
+        - Support `parallel_map` for FernSeries
+    - Style:
+        - Use Google annotation style in `data.py`
+
 ## Version 0.7
 
 - 0.7.0 (2020-11-11)
