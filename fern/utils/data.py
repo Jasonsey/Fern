@@ -12,7 +12,7 @@ import json
 import pickle
 import pathlib
 from typing import *
-from multiprocessing import Pool
+from multiprocessing.pool import Pool
 
 import numpy as np
 import pandas as pd
@@ -33,19 +33,33 @@ class FernSeries(pd.Series):
     def _constructor_expanddim(self):
         return FernDataFrame
 
-    def parallel_map(self, func: Callable, processes: Optional[int] = None):
+    def parallel_map(self, func: Callable, args: Optional[Tuple] = None, processes: Optional[int] = None):
         """
         map method that use multiple processes
 
         Args:
             func: called to preprocess data
+            args: args to be fed into the func, in addition to the original data
             processes: how many cpu to be used, default use all cpu
 
         Returns:
             processed series
+
+        Examples:
+            >>> d = FernSeries([1,2,3,4])
+            >>> def multiply(x, y):
+            ...     return x * y
+            >>> d.parallel_map(func=multiply, args=(2, ))
+            0    2
+            1    4
+            2    6
+            3    8
+            dtype: int64
         """
+        args = args if args is not None else tuple()
         with Pool(processes) as pool:
-            new_array = pool.map(func, self.array)
+            multi_res = [pool.apply_async(func, (item, *args)) for item in self.array]
+            new_array = [data.get() for data in multi_res]
         return FernSeries(data=new_array, index=self.index)
 
 
@@ -65,12 +79,13 @@ class FernDataFrame(pd.DataFrame):
     def _constructor_sliced(self):
         return FernSeries
 
-    def parallel_apply(self, func: Callable[[Dict], Any], axis: int = 1, processes: Optional[int] = None) -> FernSeries:
+    def parallel_apply(self, func: Callable[[Dict], Any], args: Optional[Tuple] = None, axis: int = 1, processes: Optional[int] = None) -> FernSeries:
         """
         apply method which uses multiple processes
 
         Args:
             func: Function to apply to each column or row.
+            args: args to be fed into the func, in addition to the original data
             axis: Axis along which the function is applied
                 * 0: apply function to each column.
                 * 1: apply function to each row.
@@ -80,7 +95,7 @@ class FernDataFrame(pd.DataFrame):
             processed series
         """
         data: FernSeries = self.apply(lambda x: x.to_dict(), axis=axis)
-        res = data.parallel_map(func=func, processes=processes)
+        res = data.parallel_map(func=func, args=args, processes=processes)
         return res
 
     def save(self, path):
@@ -185,10 +200,10 @@ class FernCleaner(object):
 
         data[self.data_col] = data.parallel_apply(self.clean_data, axis=1)
         self.logger.debug('All raw data has been cleaned.')
-        data[self.data_col] = data[self.data_col].parallel_map(self.str2word)
+        data[self.data_col] = data[self.data_col].map(self.str2word)
         self.logger.debug('All cleaned data has been split into word list.')
 
-        data[self.label_col] = data.parallel_apply(self.clean_label, axis=1)
+        data[self.label_col] = data.apply(self.clean_label, axis=1)
         self.logger.debug('All label data has been cleaned.')
 
         columns = [self.data_col, self.label_col]
@@ -211,9 +226,12 @@ class FernCleaner(object):
         """
         raise NotImplementedError
 
-    def clean_data(self, row: Union[pd.Series, dict]) -> str:
+    @staticmethod
+    def clean_data(row: Union[pd.Series, dict]) -> str:
         """
         convert input data function for pandas apply function
+
+        due to the limitation of parallel process, the function need to be static method
 
         Args:
             row: the input data row
@@ -363,8 +381,8 @@ class FernTransformer(object):
         if self.filter_data:
             data = self.filter_data_func(data)
 
-        data[self.data_col] = data[self.data_col].parallel_map(self.transform_data)
-        data[self.label_col] = data[self.label_col].parallel_map(self.transform_label)
+        data[self.data_col] = data[self.data_col].map(self.transform_data)
+        data[self.label_col] = data[self.label_col].map(self.transform_label)
         data = data.dropna()
 
         data_ = np.concatenate(data[self.data_col].to_list())
