@@ -7,7 +7,7 @@
         - Map function error without send a function
     - New Feature:
         - Support `parallel_apply` for FernDataFrame
-        - Use parallel_apply method to speed up `FernCleaner` and `FernTransformer`
+        - Update FernCleaner to process data with parallel process
     - Test:
         - Add `test_parallel_apply` method to test `parallel_apply`
 
