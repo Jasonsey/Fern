@@ -18,7 +18,7 @@ from .model import FernModel
 from .common import ProgressBar
 
 
-class FernTrainer(object):
+class FernBaseTrainer(object):
     model: FernModel
     optimizer: Optional[tf.optimizers.Optimizer]
     data: Dict[str, Union[tf.data.Dataset, int]]
@@ -26,6 +26,117 @@ class FernTrainer(object):
     early_stop_metric: Metric
     label_weight: Union[Dict[str, np.ndarray], np.ndarray]
 
+    def train(self, epochs: int = 1, early_stop: Optional[int] = None, mode: str = 'search') -> Tuple[float, int]:
+        """
+        train the model
+
+        Args:
+            epochs: epoch number
+            early_stop:
+                If None, no early stop will be used.
+                If is number, after number times no update, will stop training early.
+            mode:
+                search: train model with data_train
+                server: train model with data_train and data_val
+
+        Returns:
+            (best_score, best_epoch)
+        """
+        raise NotImplementedError
+
+    @staticmethod
+    def load_data(
+            path: Union[str, Path],
+            batch_size: int,
+            data_col: str,
+            label_col: str,
+    ) -> Dict[str, Union[tf.data.Dataset, int]]:
+        """
+        load dataset from path
+
+        if there are multiple labels or data, for example data={'col1': data1, 'col2': data2}
+        and label={'col3': label1, 'col4': label2}, then the output of the data set will be dict too, which looks like
+        data_batch={'col1': data1, 'col2': data2} and label_batch={'col3': label1, 'col4': label2}
+
+        Args:
+            path: Points to training data in npz format
+            batch_size: batch size
+            data_col: data column name
+            label_col: label column name
+
+        Returns
+        -------
+        dict[str, tf.data.Dataset|int]
+            a dictionary with dataset_train, dataset_val, dataset_total, step_train, step_val and step_total
+        """
+        with open(path, 'rb') as f:
+            data = pickle.load(f)
+            data_total: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{data_col}_total']
+            label_total: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{label_col}_total']
+
+            data_train: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{data_col}_train']
+            label_train: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{label_col}_train']
+
+            data_val: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{data_col}_val']
+            label_val: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{label_col}_val']
+
+        if isinstance(data_total, dict):
+            # multi input
+            len_total = list(data_total.values())[0].shape[0]
+            len_train = list(data_train.values())[0].shape[0]
+            len_val = list(data_val.values())[0].shape[0]
+        else:
+            # single input
+            len_total = data_total.shape[0]
+            len_train = data_train.shape[0]
+            len_val = data_val.shape[0]
+
+        dataset_train = tf.data.Dataset.from_tensor_slices((data_train, label_train)).shuffle(len_train)\
+            .batch(batch_size)
+        dataset_val = tf.data.Dataset.from_tensor_slices((data_val, label_val)).batch(batch_size)
+        dataset_total = tf.data.Dataset.from_tensor_slices((data_total, label_total)).shuffle(len_total)\
+            .batch(batch_size)
+
+        step_train = int(np.ceil(len_train / batch_size))
+        step_val = int(np.ceil(len_val / batch_size))
+        step_total = int(np.ceil(len_total / batch_size))
+
+        data = {
+            'dataset_train': dataset_train,
+            'dataset_val': dataset_val,
+            'dataset_total': dataset_total,
+            'step_train': step_train,
+            'step_val': step_val,
+            'step_total': step_total,
+        }
+        return data
+
+    def save(self, path: Union[str, Path]) -> None:
+        """
+        save model
+
+        Parameters
+        ----------
+        path : str, Path
+            The model home path
+        """
+        path = str(Path(path) / f'{self.model.name}.h5')
+        self.model.save(path)
+
+    def load(self, path: Union[str, Path]) -> None:
+        """
+        load model
+
+        Parameters
+        ----------
+        path : str, Path
+            The model home path
+        """
+        path = str(Path(path) / f'{self.model.name}.h5')
+        self.model = tf.keras.models.load_model(path)
+
+
+class FernTrainer(FernBaseTrainer):
     def __init__(
             self,
             model: FernModel,
@@ -131,7 +242,11 @@ class FernTrainer(object):
         return best_score, best_epoch
 
     @tf.function
-    def train_step(self, data: Union[Dict[tf.Tensor], tf.Tensor], label: Union[Dict[tf.Tensor], tf.Tensor]) -> None:
+    def train_step(
+            self,
+            data: Union[Dict[str, tf.Tensor], tf.Tensor],
+            label: Union[Dict[str, tf.Tensor], tf.Tensor]
+    ) -> None:
         """
         train one step
 
@@ -150,7 +265,11 @@ class FernTrainer(object):
         self.metrics['train']['acc'].update_state(acc)
 
     @tf.function
-    def val_step(self, data: Union[Dict[tf.Tensor], tf.Tensor], label: Union[Dict[tf.Tensor], tf.Tensor]) -> None:
+    def val_step(
+            self,
+            data: Union[Dict[str, tf.Tensor], tf.Tensor],
+            label: Union[Dict[str, tf.Tensor], tf.Tensor]
+    ) -> None:
         """
         val one step
 
@@ -272,94 +391,75 @@ class FernTrainer(object):
             res *= tf.cast(tf.equal(y_true, y_pred), tf.float32)
         return res
 
-    @staticmethod
-    def load_data(path: Union[str, Path], batch_size: int, data_col: str, label_col: str)\
-            -> Dict[str, Union[tf.data.Dataset, int]]:
+
+class FernSimpleTrainer(FernBaseTrainer):
+    def __init__(
+            self,
+            model: FernModel,
+            path_data: Union[str, Path],
+            opt: str = 'adam',
+            lr: float = 0.003,
+            batch_size: int = 64,
+            data_col: str = 'data',
+            label_col: str = 'label'):
         """
-        load dataset from path
+        model trainer for Keras model.fit module
 
-        if there are multiple labels or data, for example data={'col1': data1, 'col2': data2}
-        and label={'col3': label1, 'col4': label2}, then the output of the data set will be dict too, which looks like
-        data_batch={'col1': data1, 'col2': data2} and label_batch={'col3': label1, 'col4': label2}
+        This can be used in one output and multi outputs
 
-        Parameters
-        ----------
-        path : str, Path, optional
-            Points to training data in npz format
-        batch_size : int
-            batch size
-        data_col: str
-            data column name
-        label_col: str
-            label column name
+        Args:
+            model: the model to be trained
+            path_data: Points to training data in npz format
+            opt: the name of optimizer
+            lr: learning rate
+            batch_size: batch size
+            data_col: data column name
+            label_col: label column name
 
-        Returns
-        -------
-        dict[str, tf.data.Dataset|int]
-            a dictionary with dataset_train, dataset_val, dataset_total, step_train, step_val and step_total
+        References
+            https://www.tensorflow.org/guide/data#using_tfdata_with_tfkeras
         """
-        with open(path, 'rb') as f:
-            data = pickle.load(f)
-            data_total: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{data_col}_total']
-            label_total: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{label_col}_total']
+        self.model = model
+        self.model.compile()
+        self.optimizer = tf.keras.optimizers.get({
+            'class_name': opt,
+            'config': {'learning_rate': lr}
+        })
+        self.compile()
 
-            data_train: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{data_col}_train']
-            label_train: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{label_col}_train']
+        self.data = self.load_data(path_data, batch_size, data_col, label_col)
 
-            data_val: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{data_col}_val']
-            label_val: Union[Dict[str, np.ndarray], np.ndarray] = data[f'{label_col}_val']
+    def train(
+            self,
+            epochs: int = 1,
+            early_stop: Optional[int] = None,
+            monitor: str = 'val_categorical_accuracy',
+            mode: str = 'search',
+            verbose=1
+    ) -> Tuple[float, int]:
 
-        if isinstance(data_total, dict):
-            # multi input
-            len_total = list(data_total.values())[0].shape[0]
-            len_train = list(data_train.values())[0].shape[0]
-            len_val = list(data_val.values())[0].shape[0]
-        else:
-            # single input
-            len_total = data_total.shape[0]
-            len_train = data_train.shape[0]
-            len_val = data_val.shape[0]
+        callbacks = []
+        if early_stop:
+            callbacks.append(
+                tf.keras.callbacks.EarlyStopping(
+                    monitor=monitor,
+                    min_delta=1e-3,
+                    patience=early_stop,
+                    restore_best_weights=True))
 
-        dataset_train = tf.data.Dataset.from_tensor_slices((data_train, label_train)).shuffle(len_train)\
-            .batch(batch_size)
-        dataset_val = tf.data.Dataset.from_tensor_slices((data_val, label_val)).batch(batch_size)
-        dataset_total = tf.data.Dataset.from_tensor_slices((data_total, label_total)).shuffle(len_total)\
-            .batch(batch_size)
+        history: tf.keras.callbacks.History = self.model.fit(
+            x=self.data['dataset_train'] if mode == 'search' else self.data['dataset_total'],
+            epochs=epochs,
+            verbose=verbose,
+            callbacks=callbacks,
+            validation_data=self.data['dataset_val'])
 
-        step_train = int(np.ceil(len_train / batch_size))
-        step_val = int(np.ceil(len_val / batch_size))
-        step_total = int(np.ceil(len_total / batch_size))
+        res: List[float] = history.history.get('val_acc')
+        best_score, best_epoch = np.max(res), res.index(np.max(res))
+        return best_score, best_epoch
 
-        data = {
-            'dataset_train': dataset_train,
-            'dataset_val': dataset_val,
-            'dataset_total': dataset_total,
-            'step_train': step_train,
-            'step_val': step_val,
-            'step_total': step_total,
-        }
-        return data
-
-    def save(self, path: Union[str, Path]) -> None:
+    def compile(self):
         """
-        save model
-
-        Parameters
-        ----------
-        path : str, Path
-            The model home path
+        you should compile model here
         """
-        path = str(Path(path) / f'{self.model.name}.h5')
-        self.model.save(path)
-
-    def load(self, path: Union[str, Path]) -> None:
-        """
-        load model
-
-        Parameters
-        ----------
-        path : str, Path
-            The model home path
-        """
-        path = str(Path(path) / f'{self.model.name}.h5')
-        self.model = tf.keras.models.load_model(path)
+        raise NotImplementedError('you should compile model before doing anything')

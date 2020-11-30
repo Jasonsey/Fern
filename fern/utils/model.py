@@ -12,6 +12,8 @@ from fern.setting import LOGGER
 
 
 class FernModel(object):
+    model: Model
+
     def __init__(self, output_shape, max_seq_len, library_len, initializer='he_normal'):
         """
         model builder
@@ -35,6 +37,9 @@ class FernModel(object):
 
         self.model = self.build()
         self.print_summary()
+
+        self.compile = self.model.compile
+        self.fit = self.model.fit
 
     def print_summary(self):
         """
