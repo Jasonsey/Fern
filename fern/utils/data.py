@@ -299,8 +299,8 @@ class FernCleaner(object):
         """
         data = pd.read_csv(path)
         data = data.set_index(self.idx_col)
-        data[self.label_col] = data[self.label_col].map(eval)
-        data[self.data_col] = data[self.data_col].map(eval)
+        data.loc[:, self.label_col] = data[self.label_col].map(eval)
+        data.loc[:, self.data_col] = data[self.data_col].map(eval)
         self.data = data
 
 
