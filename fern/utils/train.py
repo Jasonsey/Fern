@@ -6,7 +6,7 @@
 # =============================================================================
 """model trainer"""
 import pickle
-import pathlib
+from pathlib import Path
 from typing import *
 
 import numpy as np
@@ -14,11 +14,27 @@ import tensorflow as tf
 from tensorflow.keras.metrics import Metric
 
 from fern.setting import LOGGER
+from .model import FernModel
 from .common import ProgressBar
 
 
 class FernTrainer(object):
-    def __init__(self, model, path_data, opt='adam', lr=0.003, batch_size=64, data_col='data', label_col='label'):
+    model: FernModel
+    optimizer: Optional[tf.optimizers.Optimizer]
+    data: Dict[str, Union[tf.data.Dataset, int]]
+    metrics: Dict[str, Dict[str, Metric]]
+    early_stop_metric: Metric
+    label_weight: Union[Dict[str, np.ndarray], np.ndarray]
+
+    def __init__(
+            self,
+            model: FernModel,
+            path_data: Union[str, Path],
+            opt: str = 'adam',
+            lr: float = 0.003,
+            batch_size: int = 64,
+            data_col: str = 'data',
+            label_col: str = 'label'):
         """
         model trainer
 
@@ -43,7 +59,7 @@ class FernTrainer(object):
 
         self.data = self.load_data(path_data, batch_size, data_col, label_col)
 
-    def train(self, epochs=1, early_stop=None, mode='search'):
+    def train(self, epochs: int = 1, early_stop: Optional[int] = None, mode: str = 'search') -> Tuple[float, int]:
         """
         train the model
 
@@ -115,7 +131,7 @@ class FernTrainer(object):
         return best_score, best_epoch
 
     @tf.function
-    def train_step(self, data, label):
+    def train_step(self, data: Union[Dict[tf.Tensor], tf.Tensor], label: Union[Dict[tf.Tensor], tf.Tensor]) -> None:
         """
         train one step
 
@@ -134,7 +150,7 @@ class FernTrainer(object):
         self.metrics['train']['acc'].update_state(acc)
 
     @tf.function
-    def val_step(self, data, label):
+    def val_step(self, data: Union[Dict[tf.Tensor], tf.Tensor], label: Union[Dict[tf.Tensor], tf.Tensor]) -> None:
         """
         val one step
 
@@ -150,7 +166,7 @@ class FernTrainer(object):
         self.metrics['val']['acc'].update_state(acc)
 
     @staticmethod
-    def setup_metrics():
+    def setup_metrics() -> Tuple[Dict[str, Dict[str, Metric]], Metric]:
         """
         Initialize the evaluation metrics.
         If you define the metric yourself, please remember to edit your train_step and val_step
@@ -196,7 +212,8 @@ class FernTrainer(object):
         return res, res['val']['acc']
 
     @staticmethod
-    def loss(ys_desired, ys_predicted):
+    def loss(ys_desired: Union[Dict[str, tf.Tensor], tf.Tensor], ys_predicted: Union[Dict[str, tf.Tensor], tf.Tensor])\
+            -> tf.Tensor:
         """
         loss function
 
@@ -227,7 +244,8 @@ class FernTrainer(object):
         return sum_res
 
     @staticmethod
-    def acc(ys_desired, ys_predicted):
+    def acc(ys_desired: Union[Dict[str, tf.Tensor], tf.Tensor], ys_predicted: Union[Dict[str, tf.Tensor], tf.Tensor])\
+            -> tf.Tensor:
         """
         accuracy function
 
@@ -246,7 +264,7 @@ class FernTrainer(object):
             ys_predicted = {'label': ys_predicted}
             ys_desired = {'label': ys_desired}
 
-        res = 1
+        res = tf.constant(1)
         for key in ys_desired:
             # if use multi label output, you should change this code block
             y_true = tf.argmax(ys_desired[key], axis=-1)
@@ -255,7 +273,8 @@ class FernTrainer(object):
         return res
 
     @staticmethod
-    def load_data(path, batch_size, data_col, label_col):
+    def load_data(path: Union[str, Path], batch_size: int, data_col: str, label_col: str)\
+            -> Dict[str, Union[tf.data.Dataset, int]]:
         """
         load dataset from path
 
@@ -321,7 +340,7 @@ class FernTrainer(object):
         }
         return data
 
-    def save(self, path):
+    def save(self, path: Union[str, Path]) -> None:
         """
         save model
 
@@ -330,10 +349,10 @@ class FernTrainer(object):
         path : str, Path
             The model home path
         """
-        path = str(pathlib.Path(path) / f'{self.model.name}.h5')
+        path = str(Path(path) / f'{self.model.name}.h5')
         self.model.save(path)
 
-    def load(self, path):
+    def load(self, path: Union[str, Path]) -> None:
         """
         load model
 
@@ -342,5 +361,5 @@ class FernTrainer(object):
         path : str, Path
             The model home path
         """
-        path = str(pathlib.Path(path) / f'{self.model.name}.h5')
+        path = str(Path(path) / f'{self.model.name}.h5')
         self.model = tf.keras.models.load_model(path)
