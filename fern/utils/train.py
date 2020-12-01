@@ -445,6 +445,7 @@ class FernSimpleTrainer(FernBaseTrainer):
                     monitor=monitor,
                     min_delta=1e-3,
                     patience=early_stop,
+                    verbose=0 if verbose == 2 else 1,
                     restore_best_weights=True))
 
         history: tf.keras.callbacks.History = self.model.fit(
@@ -454,7 +455,7 @@ class FernSimpleTrainer(FernBaseTrainer):
             callbacks=callbacks,
             validation_data=self.data['dataset_val'])
 
-        res: List[float] = history.history.get('val_acc')
+        res: List[float] = history.history.get(monitor)
         best_score, best_epoch = np.max(res), res.index(np.max(res))
         return best_score, best_epoch
 
