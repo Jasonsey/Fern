@@ -2,6 +2,15 @@
 
 ## Version 0.8
 
+- 0.9.0 (2020-12-13)
+    - New Feature:
+        - Add setting GPU function
+        - Add FernSimpleTrainer
+    - Style:
+        - Update trainer's annotation
+
+## Version 0.8
+
 - 0.8.1 (2020-11-16)
     - Fix Bug:
         - Map function error without send a function

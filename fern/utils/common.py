@@ -8,11 +8,15 @@
 import re
 import pathlib
 import subprocess
+from typing import *
 
 import nltk
 import jieba
+import tensorflow as tf
 from nltk import tokenize
 from tqdm import tqdm
+
+from fern.setting import LOGGER
 
 
 def read_words(words_path):
@@ -136,6 +140,30 @@ def get_available_gpu(min_memory=0):
         return res[0]
     else:
         return None, 0
+
+
+def set_gpu(index: Optional[int] = None, growth: bool = True):
+    """
+    set which GPU to use
+
+    Args:
+        index: the gpu index
+        growth: whether to limit gpu memory growth
+    """
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if growth:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+
+    if gpus and isinstance(index, int):
+        try:
+            tf.config.experimental.set_visible_devices(gpus[index], 'GPU')
+        except RuntimeError as e:
+            # Memory growth must be set before GPUs have been initialized
+            LOGGER.warn(e)
+        except IndexError as e:
+            # there is no such a gpu found
+            LOGGER.warn(e)
 
 
 class ProgressBar(tqdm):
