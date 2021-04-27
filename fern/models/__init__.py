@@ -4,6 +4,6 @@
 # Email: jason.m.lin@outlook.com
 #
 # =============================================================================
-"""utils"""
-from .common import *
-from .logging import *
+"""fern models"""
+from .layers import *
+from .model import *
