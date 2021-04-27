@@ -1,6 +1,18 @@
 # CHANGE LOG
 
-## Version 0.8
+## Version 1.0
+
+- 1.0.0 (2021-04-27)
+    - New Feature:
+        - 按照模块功能, 重新调整模型的结构, 调整后的模块为: 
+            - data: 数据预处理的各种功能函数
+            - models: 自定义层, 常用模型
+            - utils: 全局通用函数
+            - metrics: 自定义衡量函数
+            - pipeline: 流程控制函数
+            - train: 自定义训练函数
+
+## Version 0.9
 
 - 0.9.0 (2020-12-13)
     - New Feature:

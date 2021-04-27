@@ -14,8 +14,8 @@ import tensorflow as tf
 from tensorflow.keras.metrics import Metric
 
 from fern.setting import LOGGER
-from .model import FernModel
-from .common import ProgressBar
+from fern.models.model import FernModel
+from fern.utils.common import ProgressBar
 
 
 class FernBaseTrainer(object):

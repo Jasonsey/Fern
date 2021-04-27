@@ -5,7 +5,6 @@
 #
 # =============================================================================
 """"model file"""
-import tensorflow as tf
 from tensorflow.keras import Model, layers
 
 from fern.setting import LOGGER

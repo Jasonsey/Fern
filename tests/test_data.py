@@ -7,7 +7,7 @@
 """test data tools"""
 import numpy as np
 
-from fern.utils.data import FernSeries, FernDataFrame
+from fern.data import FernSeries, FernDataFrame
 
 
 class TestFernSeries(object):
@@ -27,7 +27,7 @@ class TestFernSeries(object):
 
         res_1_pred = data_0.parallel_map(self.multiply, args=(3,), processes=2)
         res_1_true = data_0.map(lambda x: self.multiply(x, 3))
-        assert np.all(res_0_pred == res_0_true)
+        assert np.all(res_1_pred == res_1_true)
 
         try:
             data_1.parallel_map(self.square, processes=2)
