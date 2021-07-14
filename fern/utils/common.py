@@ -5,6 +5,7 @@
 #
 # =============================================================================
 """common function"""
+import logging
 import pathlib
 import subprocess
 from typing import *
@@ -13,7 +14,8 @@ import tensorflow as tf
 from tqdm import tqdm
 import yaml
 
-from fern.setting import LOGGER
+
+logger = logging.getLogger('Fern')
 
 
 def check_path(path):
@@ -85,10 +87,10 @@ def set_gpu(index: Optional[int] = None, growth: bool = True):
             tf.config.experimental.set_visible_devices(gpus[index], 'GPU')
         except RuntimeError as e:
             # Memory growth must be set before GPUs have been initialized
-            LOGGER.warn(e)
+            logger.info(e)
         except IndexError as e:
             # there is no such a gpu found
-            LOGGER.warn(e)
+            logger.info(e)
 
 
 class ProgressBar(tqdm):

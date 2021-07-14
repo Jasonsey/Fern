@@ -5,6 +5,7 @@
 #
 # =============================================================================
 """model trainer"""
+import logging
 import pickle
 from pathlib import Path
 from typing import *
@@ -13,9 +14,11 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.metrics import Metric
 
-from fern.setting import LOGGER
 from fern.models.model import FernModel
 from fern.utils.common import ProgressBar
+
+
+logger = logging.getLogger('Fern')
 
 
 class FernBaseTrainer(object):
@@ -235,7 +238,7 @@ class FernTrainer(FernBaseTrainer):
                 log.append(log_line)
             log = '\n\t'.join(log)
             log += '\n'
-            LOGGER.warn(log)
+            logger.info(log)
 
             if stop_flag:
                 break
