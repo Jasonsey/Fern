@@ -11,6 +11,7 @@ from typing import *
 
 import tensorflow as tf
 from tqdm import tqdm
+import yaml
 
 from fern.setting import LOGGER
 
@@ -93,3 +94,11 @@ def set_gpu(index: Optional[int] = None, growth: bool = True):
 class ProgressBar(tqdm):
     def __init__(self, *arg, **kwargs):
         super().__init__(ascii='->', leave=False, *arg, **kwargs)
+
+
+def read_config(path: str):
+    """读取yaml配置文件"""
+    with open(path, 'r') as f:
+        data = yaml.safe_load(f)
+    return data
+

@@ -392,75 +392,84 @@ class FernTrainer(FernBaseTrainer):
         return res
 
 
-class FernSimpleTrainer(FernBaseTrainer):
-    def __init__(
-            self,
-            model: FernModel,
-            path_data: Union[str, Path],
-            opt: str = 'adam',
-            lr: float = 0.003,
-            batch_size: int = 64,
-            data_col: str = 'data',
-            label_col: str = 'label'):
-        """
-        model trainer for Keras model.fit module
+def compile_keras_model(
+        model: tf.keras.Model,
+        opt: str = 'adam',
+        lr: float = 0.003,
+        run_eagerly: Optional[int] = None,
+        multi_classification: bool = True,
+) -> tf.keras.Model:
+    """
+    编译keras模型
 
-        This can be used in one output and multi outputs
+    Args:
+        model: keras model
+        opt: 优化器名字
+        lr: 学习率
+        run_eagerly: 如果是1, 用于动态图调试
+        multi_classification: 如果是多标签的, 那么使用 binary_crossentropy; 否则使用
 
-        Args:
-            model: the model to be trained
-            path_data: Points to training data in npz format
-            opt: the name of optimizer
-            lr: learning rate
-            batch_size: batch size
-            data_col: data column name
-            label_col: label column name
+    Returns:
+        编译后的模型
+    """
+    optimizer = tf.keras.optimizers.get({
+        'class_name': opt,
+        'config': {'learning_rate': lr}
+    })
 
-        References
-            https://www.tensorflow.org/guide/data#using_tfdata_with_tfkeras
-        """
+    if multi_classification:
+        model.compile(
+            optimizer=optimizer,
+            loss=tf.keras.losses.binary_crossentropy,
+            metrics=[
+                tf.keras.metrics.binary_accuracy,
+                tf.keras.metrics.AUC(),
+            ],
+            run_eagerly=run_eagerly,
+        )
+    else:
+        model.compile(
+            optimizer=optimizer,
+            loss=tf.keras.losses.categorical_crossentropy,
+            metrics=[
+                tf.keras.metrics.categorical_accuracy,
+                tf.keras.metrics.AUC(),
+            ],
+            run_eagerly=run_eagerly,
+        )
+    return model
+
+
+class ModelTrainer(object):
+    def __init__(self,
+                 model: tf.keras.Model,
+                 ckpt_home: str,
+                 log_home: str,
+                 train_ds: tf.data.Dataset,
+                 val_ds: Optional[tf.data.Dataset] = None,
+                 version: int = 1):
         self.model = model
-        self.model.compile()
-        self.optimizer = tf.keras.optimizers.get({
-            'class_name': opt,
-            'config': {'learning_rate': lr}
-        })
-        self.compile()
+        self.train_ds = train_ds
+        self.val_ds = val_ds
 
-        self.data = self.load_data(path_data, batch_size, data_col, label_col)
+        self.log_dir = Path(log_home) / f'{model.name}' / str(version)
+        self.ckpt_dir = Path(ckpt_home) / f'{model.name}' / str(version) / 'weight.{epoch:02d}'
 
-    def train(
-            self,
-            epochs: int = 1,
-            early_stop: Optional[int] = None,
-            monitor: str = 'val_categorical_accuracy',
-            mode: str = 'search',
-            verbose=1
-    ) -> Tuple[float, int]:
-
-        callbacks = []
-        if early_stop:
-            callbacks.append(
-                tf.keras.callbacks.EarlyStopping(
-                    monitor=monitor,
-                    min_delta=1e-3,
-                    patience=early_stop,
-                    verbose=0 if verbose == 2 else 1,
-                    restore_best_weights=True))
-
-        history: tf.keras.callbacks.History = self.model.fit(
-            x=self.data['dataset_train'] if mode == 'search' else self.data['dataset_total'],
-            epochs=epochs,
-            verbose=verbose,
+    def train(self, epochs: int = 1, steps_per_epoch: Optional[int] = None, verbose=1) -> tf.keras.callbacks.History:
+        callbacks = [
+            tf.keras.callbacks.TensorBoard(self.log_dir, update_freq=100, write_images=True, embeddings_freq=1),
+            tf.keras.callbacks.ModelCheckpoint(self.ckpt_dir)
+        ]
+        kwargs = dict(
+            x=self.train_ds,
             callbacks=callbacks,
-            validation_data=self.data['dataset_val'])
+            epochs=epochs,
+            steps_per_epoch=steps_per_epoch,
+            verbose=verbose
+        )
 
-        res: List[float] = history.history.get(monitor)
-        best_score, best_epoch = np.max(res), res.index(np.max(res))
-        return best_score, best_epoch
-
-    def compile(self):
-        """
-        you should compile model here
-        """
-        raise NotImplementedError('you should compile model before doing anything')
+        if self.val_ds:
+            history = self.model.fit(validation_data=self.val_ds, **kwargs)
+        else:
+            history = self.model.fit(**kwargs)
+        return history
