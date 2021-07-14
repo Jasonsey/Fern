@@ -443,7 +443,7 @@ def compile_keras_model(
     return model
 
 
-class ModelTrainer(object):
+class FernKerasModelTrainer(object):
     def __init__(self,
                  model: tf.keras.Model,
                  ckpt_home: str,
