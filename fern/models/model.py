@@ -5,9 +5,11 @@
 #
 # =============================================================================
 """"model file"""
+import logging
 from tensorflow.keras import Model, layers
 
-from fern.setting import LOGGER
+
+logger = logging.getLogger()
 
 
 class FernModel(object):
@@ -47,7 +49,7 @@ class FernModel(object):
         summary = []
         self.model.summary(print_fn=summary.append)
         summary = '\n'.join(summary)
-        LOGGER.warn(f"\n{summary}")
+        logger.info(f"\n{summary}")
 
     def build(self):
         """

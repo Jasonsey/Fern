@@ -2,6 +2,15 @@
 
 ## Version 1.0
 
+- 1.1.0 (2021-07-14)
+    - New Feature:
+        - 添加Bert token方法
+        - 添加yaml文件读取工具
+        - 添加keras模型快速编译函数
+        - 添加keras模型基于dataset的训练脚本
+    - Fix Bug:
+        - 修复logging模块重复输出日志的bug
+
 - 1.0.0 (2021-04-27)
     - New Feature:
         - 按照模块功能, 重新调整模型的结构, 调整后的模块为: 
