@@ -60,7 +60,7 @@ class FernCleaner(object):
         一般流程：
             1. 关键数据截取
             2. 特殊字符清理
-            3. 停用词移除
+            3. 停用词移除(不在此处操作, 这个在tokenize中操作)
 
         Args:
             row: the input data row
@@ -113,12 +113,14 @@ class FernTokenizer(object):
         """
         raise NotImplementedError
 
-    def token_data(self, string: str) -> np.ndarray:
+    def tokenize_data(self, string: str) -> np.ndarray:
         """
         转化string文本为token列表格式
 
         一般操作步骤：
             1. 文本分词为词列表
+            2. 使用停用词库移除停用词
+            3. 词库中未出现的词, 转化为ukn token
             2. 如果必要，可以添加特殊token到这个列表中
             2. 使用word2id转化为token列表
 
@@ -130,7 +132,7 @@ class FernTokenizer(object):
         """
         raise NotImplementedError
 
-    def token_label(self, label: Union[dict, list, tuple, str]) -> Union[dict, np.ndarray]:
+    def tokenize_label(self, label: Union[dict, list, tuple, str]) -> Union[dict, np.ndarray]:
         """
         转化label为id array格式
 
