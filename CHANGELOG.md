@@ -5,6 +5,7 @@
 - 1.1.1 (2021-07-18)
     - Fix Bug:
         - 修复Optional的错误
+        - 默认的logger不允许从父类中继承handler
 
 - 1.1.0 (2021-07-14)
     - New Feature:
