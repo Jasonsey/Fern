@@ -31,7 +31,7 @@ def train_data_split(
         (train_df, test_df)
     """
     if isinstance(test_size, float) and test_size <= 1:
-        test_size = len(data) * test_size
+        test_size = int(len(data) * test_size)
         if isinstance(max_test_size, int) and test_size > max_test_size:
             test_size = max_test_size
     train_df, test_df = train_test_split(data, test_size=test_size, random_state=random_state)
