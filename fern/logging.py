@@ -39,7 +39,7 @@ class Logging(object):
         ERROR=logging.ERROR
     )
 
-    def __init__(self, name: str = 'fern', level: Union[str, int] = 'info', propagate=False):
+    def __init__(self, name: str = 'Fern', level: Union[str, int] = 'info', propagate=False):
         logger = logging.getLogger(name)
 
         # 所有logger都不从root中继承handler, 但如果是子logger则要从父logger中继承

@@ -7,6 +7,7 @@
         - 修复Optional的错误
         - 默认的logger不允许从父类中继承handler
         - 修复分割数据集时, 大于1浮点数问题
+        - 更新logging的默认名字
 
 - 1.1.0 (2021-07-14)
     - New Feature:
