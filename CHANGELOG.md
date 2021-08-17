@@ -2,6 +2,10 @@
 
 ## Version 1.0
 
+- 1.1.2 (2021-08-17)
+    - New Feature:
+        - 添加常用的自定义loss
+
 - 1.1.1 (2021-07-18)
     - Fix Bug:
         - 修复Optional的错误
