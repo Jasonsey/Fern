@@ -2,6 +2,14 @@
 
 ## Version 1.0
 
+- 1.1.1 (2021-07-18)
+    - Fix Bug:
+        - 修复Optional的错误
+        - 默认的logger不允许从父类中继承handler
+        - 修复分割数据集时, 大于1浮点数问题
+        - 更新logging的默认名字
+        - 更新发布流程: 打上标签即发布
+
 - 1.1.0 (2021-07-14)
     - New Feature:
         - 添加Bert token方法

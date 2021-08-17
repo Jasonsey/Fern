@@ -16,7 +16,7 @@ def train_data_split(
         data: pd.DataFrame,
         test_size: Union[int, float],
         max_test_size: Optional[int] = None,
-        random_state: Optional[int, np.random.RandomState] = None
+        random_state: Union[int, np.random.RandomState, None] = None
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     使用sklearn的方法分割数据集
@@ -31,7 +31,7 @@ def train_data_split(
         (train_df, test_df)
     """
     if isinstance(test_size, float) and test_size <= 1:
-        test_size = len(data) * test_size
+        test_size = int(len(data) * test_size)
         if isinstance(max_test_size, int) and test_size > max_test_size:
             test_size = max_test_size
     train_df, test_df = train_test_split(data, test_size=test_size, random_state=random_state)

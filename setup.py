@@ -5,8 +5,16 @@
 #
 # =============================================================================
 """setup file for packaging"""
+import re
+import os
 import setuptools
 
+
+REF = os.getenv('GITHUB_REF', '')   # refs/tags/1.1.1.dev5
+VERSION = REF.split('/')[-1]
+# check version, 1.1.1rc2.post1.dev1
+if not VERSION or not re.match(r'^\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?(?:\.post\d+)?(?:\.dev\d+)?$', VERSION):
+    raise ValueError(f'Version check failed: {VERSION}')
 
 with open('README.md', 'r') as f:
     LONG_DESCRIPTION = f.read()
@@ -16,7 +24,7 @@ with open('requirements.txt', 'r') as f:
 
 setuptools.setup(
     name='Fern2',
-    version='1.1.0',
+    version=VERSION,
     author='Jason, Lin',
     author_email='jason.m.lin@outlook.com',
     license='Apache 2.0',
