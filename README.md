@@ -1,5 +1,7 @@
 # FERN
 
+[![Pypi](https://github.com/Jasonsey/Fern/actions/workflows/pypi.yml/badge.svg)](https://github.com/Jasonsey/Fern/actions/workflows/pypi.yml)
+
 Fern用于NLP的模型开发结构控制。通过它可以控制文本预处理、模型搭建、训练器：
 
 1. 文本预处理：数据下载、数据清洗、数据转换和数据分割
