@@ -5,8 +5,15 @@
 #
 # =============================================================================
 """setup file for packaging"""
+import re
+import os
 import setuptools
 
+
+VERSION = os.getenv('GITHUB_REF', '')
+# check version, 1.1.1rc2.post1.dev1
+if not VERSION or not re.match(r'^\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?(?:\.post\d+)?(?:\.dev\d+)?$', VERSION):
+    raise ValueError(f'Version check failed: {VERSION}')
 
 with open('README.md', 'r') as f:
     LONG_DESCRIPTION = f.read()
