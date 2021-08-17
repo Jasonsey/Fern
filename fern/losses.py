@@ -23,7 +23,7 @@ class BinaryFocalLoss(Loss):
         y_pred = tf.clip_by_value(y_pred, clip_value_min=epsilon(), clip_value_max=1-epsilon())  # 限制范围[ep, 1-ep]
         y_ = y_true * y_pred + (1.0 - y_true) * (1.0 - y_pred)  # 如果在这里使用
         loss = -((1 - y_) ** self.gamma) * math.log(y_)
-        loss = -math.reduce_sum(loss, axis=-1)
+        loss = math.reduce_sum(loss, axis=-1)
         return loss
 
 
