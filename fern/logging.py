@@ -52,6 +52,7 @@ class Logging(object):
             logger.setLevel(self.levels.get(str(level).upper(), 'WARN'))
         # add logger
         self.__logger = logger
+        self.add_stream_handler()
 
     def __getattr__(self, item: str):
         if item in dir(self):

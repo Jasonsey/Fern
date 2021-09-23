@@ -7,6 +7,7 @@
         - 添加常用的自定义loss
         - 添加Logging的上下文管理模块, 控制节点
         - 添加字符串转驼峰脚本
+        - 默认创建的logging添加stream logging功能
 
 - 1.1.1 (2021-07-18)
     - Fix Bug:
