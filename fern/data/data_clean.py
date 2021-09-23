@@ -28,3 +28,10 @@ def full_width_to_half_width(string: str) -> str:
             char = chr(char_ord)
         new_string += char
     return new_string
+
+
+def string_to_camel(string: str) -> str:
+    """
+    把下划线字符串转为驼峰模式
+    """
+    return ''.join([_string.capitalize() for _string in string.split('_')])

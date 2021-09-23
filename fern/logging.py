@@ -52,6 +52,7 @@ class Logging(object):
             logger.setLevel(self.levels.get(str(level).upper(), 'WARN'))
         # add logger
         self.__logger = logger
+        self.add_stream_handler()
 
     def __getattr__(self, item: str):
         if item in dir(self):
@@ -117,3 +118,31 @@ class Logging(object):
         handlers = [handler for handler in self.__logger.handlers if not isinstance(handler, logging.FileHandler)]
         handlers.append(file_handler)
         self.__logger.handlers = handlers
+
+
+class LoggingContext(object):
+    """
+    通过通过上下文, 执行前和执行结束打印结果
+
+    Examples
+    ----
+    >>> with LoggingContext(print, 'test'):
+    ...     print('xxx')
+    Begin: test
+    xxx
+    End: test
+    """
+    def __init__(self, log_func: Callable, msg: str):
+        """
+        Args:
+            log_func: logging.info等函数
+            msg: 需要打印的数据
+        """
+        self.log_func = log_func
+        self.msg = msg
+
+    def __enter__(self):
+        self.log_func(f'Begin: {self.msg}')
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.log_func(f'End: {self.msg}')
