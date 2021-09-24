@@ -44,7 +44,7 @@ class Logging(object):
 
         # 所有logger都不从root中继承handler, 但如果是子logger则要从父logger中继承
         if isinstance(name, str):
-            logger.propagate = ('.' in name)
+            logger.propagate = ('.' in name) or propagate
         # set level
         if isinstance(level, int):
             logger.setLevel(level)
