@@ -1,3 +1,5 @@
+## [Unreleased]
+
 ## [1.1.4] - 2021-09-24
 ### Fixed
 - 修复依赖文件
@@ -188,6 +190,7 @@
 - Add README_ZH
 
 
+[Unreleased]: https://github.com/Jasonsey/Fern/compare/1.1.4...HEAD
 [1.1.4]: https://github.com/Jasonsey/Fern/compare/1.1.3...1.1.4
 [1.1.3]: https://github.com/Jasonsey/Fern/compare/1.1.2...1.1.3
 [1.1.2]: https://github.com/Jasonsey/Fern/compare/1.1.1...1.1.2
