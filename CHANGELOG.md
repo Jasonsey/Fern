@@ -1,197 +1,219 @@
-# CHANGE LOG
+## [1.1.4] - 2021-09-24
+### Fixed
+- 修复依赖文件
+- 修复log的继承关系
+- 修复语法上的问题
+    
+## [1.1.3] - 2021-09-24
+### Fixed
+- 修复缺少sklearn依赖的问题
 
-## Version 1.0
+## [1.1.2] - 2021-08-17
+### Added
+- 添加常用的自定义loss
+- 添加Logging的上下文管理模块, 控制节点
+- 添加字符串转驼峰脚本
+- 默认创建的logging添加stream logging功能
 
-- 1.1.3 (2021-09-24)
-    - Fix Bug:
-        - 修复缺少sklearn依赖的问题
+## [1.1.1] - 2021-07-18
+### Fixed
+- 修复Optional的错误
+- 默认的logger不允许从父类中继承handler
+- 修复分割数据集时, 大于1浮点数问题
+- 更新logging的默认名字
+- 更新发布流程: 打上标签即发布
 
-- 1.1.2 (2021-08-17)
-    - New Feature:
-        - 添加常用的自定义loss
-        - 添加Logging的上下文管理模块, 控制节点
-        - 添加字符串转驼峰脚本
-        - 默认创建的logging添加stream logging功能
+## [1.1.0] - 2021-07-14
+### Added
+- 添加Bert token方法
+- 添加yaml文件读取工具
+- 添加keras模型快速编译函数
+- 添加keras模型基于dataset的训练脚本
 
-- 1.1.1 (2021-07-18)
-    - Fix Bug:
-        - 修复Optional的错误
-        - 默认的logger不允许从父类中继承handler
-        - 修复分割数据集时, 大于1浮点数问题
-        - 更新logging的默认名字
-        - 更新发布流程: 打上标签即发布
+### Fixed
+- 修复logging模块重复输出日志的bug
 
-- 1.1.0 (2021-07-14)
-    - New Feature:
-        - 添加Bert token方法
-        - 添加yaml文件读取工具
-        - 添加keras模型快速编译函数
-        - 添加keras模型基于dataset的训练脚本
-    - Fix Bug:
-        - 修复logging模块重复输出日志的bug
+## [1.0.0] - 2021-04-27
+### Added
+- 按照模块功能, 重新调整模型的结构, 调整后的模块为: 
+    - data: 数据预处理的各种功能函数
+    - models: 自定义层, 常用模型
+    - utils: 全局通用函数
+    - metrics: 自定义衡量函数
+    - pipeline: 流程控制函数
+    - train: 自定义训练函数
 
-- 1.0.0 (2021-04-27)
-    - New Feature:
-        - 按照模块功能, 重新调整模型的结构, 调整后的模块为: 
-            - data: 数据预处理的各种功能函数
-            - models: 自定义层, 常用模型
-            - utils: 全局通用函数
-            - metrics: 自定义衡量函数
-            - pipeline: 流程控制函数
-            - train: 自定义训练函数
+## [0.9.0] - 2020-12-13
+### Added
+- Add setting GPU function
+- Add FernSimpleTrainer
 
-## Version 0.9
+### Changed
+- Update trainer's annotation
 
-- 0.9.0 (2020-12-13)
-    - New Feature:
-        - Add setting GPU function
-        - Add FernSimpleTrainer
-    - Style:
-        - Update trainer's annotation
+## [0.8.1] - 2020-11-16
+### Added
+- Support `parallel_apply` for FernDataFrame
+- Update FernCleaner to process data with parallel process
+- Add `test_parallel_apply` method to test `parallel_apply`
 
-## Version 0.8
+### Fixed
+- Map function error without send a function
 
-- 0.8.1 (2020-11-16)
-    - Fix Bug:
-        - Map function error without send a function
-    - New Feature:
-        - Support `parallel_apply` for FernDataFrame
-        - Update FernCleaner to process data with parallel process
-    - Test:
-        - Add `test_parallel_apply` method to test `parallel_apply`
+## [0.8.0] - 2020-11-16
+### Added
+- Support `parallel_map` for FernSeries
+- Use Google annotation style in `data.py`
 
-- 0.8.0 (2020-11-16)
-    - New Feature:
-        - Support `parallel_map` for FernSeries
-    - Style:
-        - Use Google annotation style in `data.py`
+## [0.7.0] - 2020-11-11
+### Added
+- Support multi inputs and outputs with dictionary format data
+- Label weight is no longer recommended, but dataset balancing is
+- Use a stub file to annotate the parameter types of the file `train.py`
 
-## Version 0.7
 
-- 0.7.0 (2020-11-11)
-    - New Feature:
-        - Support multi inputs and outputs with dictionary format data
-        - Label weight is no longer recommended, but dataset balancing is
-    - Style:
-        - Use a stub file to annotate the parameter types of the file `train.py`
+## [0.6.4] - 2020-11-10
+### Fixed
+- Fix data set length error when there is a multi input dictionary data
 
-## Version 0.6
+## [0.6.3] - 2020-10-16
+### Added
+- ZeroDivisionError, while balancing data and num = 1
 
-- 0.6.4 (2020-11-10)
-    - Bug Fix:
-        - Fix data set length error when there is a multi input dictionary data
+## [0.6.2] - 2020-10-15
+### Fixed
+- Prefix code type error
+- Data and label column name error while training
+- Data type error while loading data from disk
+- Repeat prefix code
 
-- 0.6.3 (2020-10-16)
-    - Bug Fix:
-        - ZeroDivisionError, while balancing data and num = 1
+## [0.6.1] - 2020-10-11
+### Fixed
+- No longer to delete character '<' and '>' for keeping special words like <SEP>
 
-- 0.6.2 (2020-10-15)
-    - Bug Fix:
-        - Prefix code type error
-        - Data and label column name error while training
-        - Data type error while loading data from disk
-        - Repeat prefix code
+## [0.6.0] - 2020-10-11
+### Added
+- Let FernDownloader download data from sql via SQLAlchemy
+- Treat a string like <ST> as a word not a string
 
-- 0.6.1 (2020-10-11)
-    - Bug Fix:
-        - No longer to delete character '<' and '>' for keeping special words like <SEP>
+### Removed
+- Delete all unimportant words
 
-- 0.6.0 (2020-10-11)
-    - New Feature:
-        - Let FernDownloader download data from sql via SQLAlchemy
-        - Treat a string like <ST> as a word not a string
-        - Delete all unimportant words
-    - Bug Fix:
-        - KeyError while concatenate a Series to an array
+### Fixed
+- KeyError while concatenate a Series to an array
 
-## Version 0.5
+## [0.5.1] - 2020-07-27
+### Fixed
+- Fix dataset_total length
 
-- 0.5.1 (2020-07-27)
-    - Bug fix:
-        - Fix dataset_total length
-    - Style:
-        - Change loss function's `train` param to `with_label_weight`
+### Changed
+- Change loss function's `train` param to `with_label_weight`
 
-- 0.5.0 (2020-07-26)
-    - New Feature:
-        - Add FernBalance class for dataset balance
-        - Add gpu finder to find which gpu has the largest free memory
+## [0.5.0] - 2020-07-26
+### Added
+- Add FernBalance class for dataset balance
+- Add gpu finder to find which gpu has the largest free memory
   
-## Version 0.4
-
-- 0.4.1 (2020-07-22)
-    - New Feature:
-        - Stop words use regular matching
-        - The `#` comment rule is allowed in word library
+## [0.4.1] - 2020-07-22
+### Added
+- Stop words use regular matching
+- The `#` comment rule is allowed in word library
     
-- 0.4.0 (2020-07-21)
-    - New Feature:
-        - Add optimized TextCNN model as a built-in model
+## [0.4.0] - 2020-07-21
+### Added
+- Add optimized TextCNN model as a built-in model
 
-## Version 0.3
-
-- 0.3.3 (2020-07-09)
-    - New Feature:
-        - Add predict function for FernModel
+## [0.3.3] - 2020-07-09
+### Added
+- Add predict function for FernModel
     
-- 0.3.2 (2020-07-06)
-    - Style:
-        - Rename BaseTrainer -> FernTrainer
-    - Bug Fix:
-        - Fix trainer not fitting for multi output labels
+## [0.3.2] - 2020-07-06
+### Changed
+- Rename BaseTrainer -> FernTrainer
+
+### Fixed
+- Fix trainer not fitting for multi output labels
  
-- 0.3.1 (2020-07-02)
-    - Bug Fix:
-        - Fix no user words file exist issue
-        - Fix cleaned label value should be a list issue
+## [0.3.1] - 2020-07-02
+### Fixed
+- Fix no user words file exist issue
+- Fix cleaned label value should be a list issue
   
-- 0.3.0 (2020-07-02)
-    - New Feature:
-        - using cut_func to split sequence to word list
-        - Add save_function for every data precessing stage
-        - Mark FernTransformer.output_shape as optional
-        - Enable data frame default index
-        - Add Sequence2Words class as cut_func generator
-        - Use fern as default data frame 
+## [0.3.0] - 2020-07-02
+### Added
+- using cut_func to split sequence to word list
+- Add save_function for every data precessing stage
+- Mark FernTransformer.output_shape as optional
+- Enable data frame default index
+- Add Sequence2Words class as cut_func generator
+- Use fern as default data frame 
 
-## Version 0.2
+## [0.2.0] - 2020-05-24
+### Added
+- Add label path for storing label data
 
-- 0.2.0 (2020-05-24)
-    - New Features:
-        - Modify output shape from list into dict
-        - Add label path for storing label data
-        - Modify transformed label from array into dictionary
-        - Update transformed label and data function
-    - Style
-        - Change variable name input_col to data_col
-        - Change variable name output_col to label_col
+### Changed
+- Modify output shape from list into dict
+- Modify transformed label from array into dictionary
+- Update transformed label and data function
+- Change variable name input_col to data_col
+- Change variable name output_col to label_col
 
-## Version 0.1
+## [0.1.4] - 2020-05-20
+### Changed
+- Change the random state location where it's defined
 
-- 0.1.4 (2020-05-20)
-    - Style
-        - Change the random state location where it's definded
+## [0.1.3] - 2020-05-20
+### Added
+- add random state for data splitter
 
-- 0.1.3 (2020-05-20)
-    - New Features
-        - add random state for data splitter
+## [0.1.2] - 2020-05-07
+### Fixed
+- Fix training loop quick exit bug
 
-- 0.1.2 (2020-05-07)
-    - Bug fix
-        - Fix training loop quick exit bug
 
-- 0.1.1 (2020-05-03)
-    - New features
-        - Add github python publish action
+## [0.1.1] - 2020-05-03
+### Added
+- Add github python publish action
 
-- 0.1.0 (2020-05-03)
-    - New features
-        - Data preprocessing module: data downloader, data cleaner, data transformer and data splitter
-        - Model template: model builder, saver, loader and structure printer
-        - Model trainer
-        - Custom layers: Conv1DPassMask, FlattenPassMask, DenseWithMask, AttentionLayer and ScaledDotProductAttention
-        - Custom metrics: BinaryCategoricalAccuarcy
-        - Other tools: logging and progress bar
-    - Documentation changes
-        - Add README 
-        - Add README_ZH
+## [0.1.0] - 2020-05-03
+### Added
+- Data preprocessing module: data downloader, data cleaner, data transformer and data splitter
+- Model template: model builder, saver, loader and structure printer
+- Model trainer
+- Custom layers: Conv1DPassMask, FlattenPassMask, DenseWithMask, AttentionLayer and ScaledDotProductAttention
+- Custom metrics: BinaryCategoricalAccuarcy
+- Other tools: logging and progress bar
+- Add README 
+- Add README_ZH
+
+
+[1.1.4]: https://github.com/Jasonsey/Fern/compare/1.1.3...1.1.4
+[1.1.3]: https://github.com/Jasonsey/Fern/compare/1.1.2...1.1.3
+[1.1.2]: https://github.com/Jasonsey/Fern/compare/1.1.1...1.1.2
+[1.1.1]: https://github.com/Jasonsey/Fern/compare/1.1.0...1.1.1
+[1.1.0]: https://github.com/Jasonsey/Fern/compare/1.0.0...1.1.0
+[1.0.0]: https://github.com/Jasonsey/Fern/compare/0.9.0...1.0.0
+[0.9.0]: https://github.com/Jasonsey/Fern/compare/0.8.1...0.9.0
+[0.8.1]: https://github.com/Jasonsey/Fern/compare/0.8.0...0.8.1
+[0.8.0]: https://github.com/Jasonsey/Fern/compare/0.7.0...0.8.0
+[0.7.0]: https://github.com/Jasonsey/Fern/compare/0.6.4...0.7.0
+[0.6.4]: https://github.com/Jasonsey/Fern/compare/0.6.3...0.6.4
+[0.6.3]: https://github.com/Jasonsey/Fern/compare/0.6.2...0.6.3
+[0.6.2]: https://github.com/Jasonsey/Fern/compare/0.6.1...0.6.2
+[0.6.1]: https://github.com/Jasonsey/Fern/compare/0.6.0...0.6.1
+[0.6.0]: https://github.com/Jasonsey/Fern/compare/0.5.1...0.6.0
+[0.5.1]: https://github.com/Jasonsey/Fern/compare/0.5.0...0.5.1
+[0.5.0]: https://github.com/Jasonsey/Fern/compare/0.4.1...0.5.0
+[0.4.1]: https://github.com/Jasonsey/Fern/compare/0.4.0...0.4.1
+[0.4.0]: https://github.com/Jasonsey/Fern/compare/0.3.3...0.4.0
+[0.3.3]: https://github.com/Jasonsey/Fern/compare/0.3.2...0.3.3
+[0.3.2]: https://github.com/Jasonsey/Fern/compare/0.3.1...0.3.2
+[0.3.1]: https://github.com/Jasonsey/Fern/compare/0.3.0...0.3.1
+[0.3.0]: https://github.com/Jasonsey/Fern/compare/0.2.0...0.3.0
+[0.2.0]: https://github.com/Jasonsey/Fern/compare/0.1.4...0.2.0
+[0.1.4]: https://github.com/Jasonsey/Fern/compare/0.1.3...0.1.4
+[0.1.3]: https://github.com/Jasonsey/Fern/compare/0.1.2...0.1.3
+[0.1.2]: https://github.com/Jasonsey/Fern/compare/0.1.1...0.1.2
+[0.1.1]: https://github.com/Jasonsey/Fern/compare/0.1.0...0.1.1
+[0.1.0]: https://github.com/Jasonsey/Fern/releases/tag/0.1.0

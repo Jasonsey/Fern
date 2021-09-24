@@ -100,7 +100,8 @@ class TextCNN(FernModel):
     """
     References
     ----------
-    Optimization of model Convolutional Neural Networks for Sentence Classification (https://arxiv.org/pdf/1408.5882.pdf)
+    Optimization of model Convolutional Neural Networks for Sentence Classification
+     (https://arxiv.org/pdf/1408.5882.pdf)
     """
     def build(self):
         inp = layers.Input(shape=(self.max_seq_len,))

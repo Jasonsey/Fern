@@ -51,10 +51,11 @@ def get_available_gpu(min_memory=0):
         - If there is gpu available, return (gpu index, free memory)
         - Else return (None, 0)
     """
-    command = "nvidia-smi --query-gpu=memory.free --format=csv"  # output: b'memory.free [MiB]\n48600 MiB\n48274 MiB\n'
+    # output: b'memory.free [MiB]\n48600 MiB\n48274 MiB\n'
+    command = "nvidia-smi --query-gpu=memory.free --format=csv"
     try:
         memory_free_info = subprocess.check_output(command.split())
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         return None, 0
     memory_info = memory_free_info.decode('ascii').split('\n')[1:-1]
     res = []
@@ -103,4 +104,3 @@ def read_config(path: str):
     with open(path, 'r') as f:
         data = yaml.safe_load(f)
     return data
-
