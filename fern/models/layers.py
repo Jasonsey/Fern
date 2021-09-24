@@ -55,7 +55,7 @@ class AttentionLayer(tf.keras.layers.Layer):
                                       trainable=True)
         super().build(input_shape)
 
-    def call(self, inputs, mask=None):
+    def call(self, inputs):
         """inputs.shape = (None, 25, 256)"""
         w = tf.transpose(inputs, perm=(0, 2, 1))
         w = tf.linalg.matmul(w, self.weight)
@@ -64,23 +64,25 @@ class AttentionLayer(tf.keras.layers.Layer):
         outputs = tf.math.reduce_sum(outputs, axis=-2)
         return outputs
 
-    def compute_output_shape(self, input_shape):
+    @staticmethod
+    def compute_output_shape(input_shape):
         res = input_shape[:-2] + input_shape[-1]
         return res
 
-    def compute_mask(self, inputs, mask=None):
+    @staticmethod
+    def compute_mask(_, mask=None):
         return mask
 
 
 class ScaledDotProductAttention(layers.Layer):
-    def __init__(self, units=64, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def build(self, input_shape):
         """input_shape = (None, 25, 256)"""
         super().build(input_shape)
 
-    def call(self, inputs, mask=None):
+    def call(self, inputs, mask=None, **kwargs):
         """inputs.shape = (None, 25, 256)"""
         q = k = v = inputs
         feature_dim = inputs.shape[-1]
@@ -105,7 +107,7 @@ class ScaledDotProductAttention(layers.Layer):
 
 class TransposeLayer(layers.Layer):
     """Transpose Layer"""
-    def call(self, inputs, mask=None):
+    def call(self, inputs, mask=None, **kwargs):
         y = tf.transpose(inputs, perm=(0, 2, 1))
         return y
 
