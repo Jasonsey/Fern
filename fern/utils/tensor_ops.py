@@ -10,7 +10,7 @@ from typing import Union, Callable
 import tensorflow as tf
 
 
-@tf.function
+# @tf.function
 def map_flat_values(map_fn: Callable, tensor: Union[tf.Tensor, tf.RaggedTensor]):
     """
     对于每个tensor, 实现flatten再传值, 然后保持前后shape一致
