@@ -11,6 +11,7 @@ import tensorflow as tf
 import tensorflow_hub as hub
 
 from fern.logging import Logging
+from fern.utils.tensor_ops import map_flat_values
 
 
 logger = Logging()
@@ -105,9 +106,9 @@ class BertEncoder(tf.keras.layers.Layer):
             **kwargs:
 
         Returns:
-            返回的tensor是ragged tensor
+            输入tensor则返回tensor, 输入ragged tensor则返回ragged tensor
         """
-        encode_output = tf.ragged.map_flat_values(self.map_func, inputs)
+        encode_output = map_flat_values(self.map_func, inputs)
         return encode_output
 
     def map_func(self, task_logs):

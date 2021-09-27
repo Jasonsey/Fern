@@ -3,6 +3,7 @@
 ## [1.2.0] - 2021-09-26
 ### Added
 - 添加BERT预训练模型, 基于tensorflow hub
+- 添加针对tensor和ragged tensor的通用map函数
 
 ## [1.1.4] - 2021-09-24
 ### Fixed
