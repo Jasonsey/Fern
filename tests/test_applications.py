@@ -38,3 +38,8 @@ class TestBertEncoder(object):
         assert oup2.shape.as_list() == [1, 2, 768]
         assert oup3.shape.as_list() == [2, None, 768]
 
+    def test_model_summary(self):
+        inp = tf.keras.layers.Input(shape=[], dtype=tf.string)
+        oup = self.model(inp)
+        model = tf.keras.Model(inputs=inp, outputs=oup)
+        print(model.summary())
