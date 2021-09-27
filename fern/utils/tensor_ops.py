@@ -35,5 +35,9 @@ def map_flat_values(map_fn: Callable, tensor: Union[tf.Tensor, tf.RaggedTensor])
         if after_shape[-1] == 1:
             # 如果最后一个维度是1, 那么会清理它
             after_shape.pop(-1)
+        for i in range(len(after_shape)):
+            # shape
+            if after_shape[i] is None:
+                after_shape[i] = -1
         output = tf.reshape(output, after_shape)
     return output
