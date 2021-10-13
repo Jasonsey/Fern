@@ -6,6 +6,8 @@
 #
 # =============================================================================
 """test_bert_encoder.py"""
+import tempfile
+import pathlib
 import tensorflow_text
 import tensorflow as tf
 from fern.applications import BertEncoder
@@ -43,3 +45,17 @@ class TestBertEncoder(object):
         oup = self.model(inp)
         model = tf.keras.Model(inputs=inp, outputs=oup)
         print(model.summary())
+
+    def test_model_save_and_load(self):
+        inp = tf.keras.layers.Input(shape=[], dtype=tf.string)
+        oup = self.model(inp)
+        model = tf.keras.Model(inputs=inp, outputs=oup)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = pathlib.Path(temp_dir) / 'test_model/1'
+
+            print(model.summary())
+            model.save(path)
+
+            model2 = tf.keras.models.load_model(path)
+            print(model2.summary())

@@ -75,12 +75,12 @@ class BertEncoder(tf.keras.layers.Layer):
             raise KeyError(f'无法找到合适的key: {self.model_config.keys()}')
         preprocessor_uri = self.model_config[model_name]['preprocessor_uri']
         encoder_uri = self.model_config[model_name]['encoder_uri']
-        self._preprocessor = hub.load(preprocessor_uri)
-        self._encoder = hub.KerasLayer(encoder_uri, trainable=trainable, name='bert-encoder-layer')
+        preprocessor = hub.load(preprocessor_uri)
+        self.encoder = hub.KerasLayer(encoder_uri, trainable=trainable, name='bert-encoder-layer')
 
-        self.tokenize = self._preprocessor.tokenize
-        self.bert_input_layer = hub.KerasLayer(
-            self._preprocessor.bert_pack_inputs,
+        self.tokenize = hub.KerasLayer(preprocessor.tokenize)
+        self.bert_pack_inputs = hub.KerasLayer(
+            preprocessor.bert_pack_inputs,
             arguments=dict(seq_length=seq_len),
             name='bert-input-layer')  # Optional argument.
 
@@ -116,7 +116,7 @@ class BertEncoder(tf.keras.layers.Layer):
             [all_task_size, encoder_length]
         """
         txt_tokenized = self.tokenize(task_logs)
-        bert_input = self.bert_input_layer([txt_tokenized])
-        bert_output = self._encoder(bert_input)['sequence_output']  # [task_size, seq_len, 768]
+        bert_input = self.bert_pack_inputs([txt_tokenized])
+        bert_output = self.encoder(bert_input)['sequence_output']  # [task_size, seq_len, 768]
         res = bert_output[:, 0, :]  # [task_size, 768]
         return res
