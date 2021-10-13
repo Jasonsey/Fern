@@ -5,4 +5,4 @@
 #
 # =============================================================================
 """NLP text processing toolkit"""
-from fern.logging import Logging
+from fern.loggingself import Logging
