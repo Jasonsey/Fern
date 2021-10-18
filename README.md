@@ -44,6 +44,11 @@ Fern的设计目的主要为了解决不同NLP工程中重复代码过多问题�
   
     - `path_dataset`
 
+## TODO
+
+- [ ] BERT预训练模型直接调用
+- [ ] BERT重现训练代码直接调用
+
 ## 版本变更日志
 
 [CHANGE LOG](./CHANGELOG.md)

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [1.2.0] - 2021-10-18
+### Added
+- 添加BERT预训练模型, 基于tensorflow hub
+- 添加针对tensor和ragged tensor的通用map函数
+- 实现一个函数导出所有的bert配置
+
 ## [1.1.4] - 2021-09-24
 ### Fixed
 - 修复依赖文件
@@ -190,7 +196,8 @@
 - Add README_ZH
 
 
-[Unreleased]: https://github.com/Jasonsey/Fern/compare/1.1.4...HEAD
+[Unreleased]: https://github.com/Jasonsey/Fern/compare/1.2.0...HEAD
+[1.2.0]: https://github.com/Jasonsey/Fern/compare/1.1.4...1.2.0
 [1.1.4]: https://github.com/Jasonsey/Fern/compare/1.1.3...1.1.4
 [1.1.3]: https://github.com/Jasonsey/Fern/compare/1.1.2...1.1.3
 [1.1.2]: https://github.com/Jasonsey/Fern/compare/1.1.1...1.1.2
