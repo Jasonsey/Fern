@@ -162,7 +162,7 @@ def generate_word_library(data: pd.DataFrame, data_col: str, top: Optional[int] 
     return word2id, id2word
 
 
-def limit_token_length(tokens: list, /, n: int, strategy: str = 'tail') -> list:
+def limit_token_length(tokens: list, n: int, strategy: str = 'tail') -> list:
     """
     限制token的长度.
 
