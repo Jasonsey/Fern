@@ -23,7 +23,8 @@ def full_width_to_half_width(string: str) -> str:
 
     new_string = ''
     for char in string:
-        if char_ord := ord(char) in table:
+        char_ord = ord(char)
+        if char_ord in table:
             char_ord = table[char_ord]
             char = chr(char_ord)
         new_string += char
