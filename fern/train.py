@@ -5,7 +5,6 @@
 #
 # =============================================================================
 """model trainer"""
-import logging
 import pickle
 from pathlib import Path
 from typing import *
@@ -14,11 +13,12 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.metrics import Metric
 
-from fern.models.model import FernModel
-from fern.utils.common import ProgressBar
+from fern.models import Word2Vec, FernModel
+from fern.logging import Logging
+from fern.utils import ProgressBar
 
 
-logger = logging.getLogger('Fern')
+logger = Logging()
 
 
 class FernBaseTrainer(object):
@@ -476,3 +476,110 @@ class FernKerasModelTrainer(object):
         else:
             history = self.model.fit(**kwargs)
         return history
+
+
+class Word2VecTrainer(object):
+    """使用dataset训练tf.Module模型"""
+    def __init__(self,
+                 model: Word2Vec,
+                 model_home: str,
+                 ckpt_home: str,
+                 log_home: str,
+                 train_ds: tf.data.Dataset,
+                 val_ds: Optional[tf.data.Dataset] = None,
+                 opt: str = 'adam',
+                 lr: float = 1.0e-3,
+                 version: int = 1):
+        """
+        Args:
+            model: 需要训练的模型，模型需要包含loss签名
+            model_home: 模型保存目录
+            ckpt_home: 检查点根目录
+            log_home: 日志根目录
+            train_ds: 训练数据集
+            val_ds: 测试数据集
+            opt: 优化器名字
+            lr: 学习率
+            version: 模型版本，影响模型的数据路径
+        """
+        self.model = model
+        self.optimizer = tf.keras.optimizers.get({
+            'class_name': opt,
+            'config': {'learning_rate': lr}
+        })
+
+        self.train_ds = train_ds
+        self.val_ds = val_ds
+
+        self.model_dir = Path(model_home) / f'{model.name}' / str(version)
+        self.log_dir = Path(log_home) / f'{model.name}' / str(version)
+        self.ckpt_dir = Path(ckpt_home) / f'{model.name}' / str(version)
+
+        # loss记录
+        self.train_loss = tf.keras.metrics.Mean(name='train_loss')
+        self.val_loss = tf.keras.metrics.Mean(name='val_loss')
+
+    def train(self, epoch: int, verbose: int = 0):
+        """训练word2vec模型
+
+        Args:
+            epoch: 循环次数
+            verbose: 0: 不打印日志；1打印epoch日志；2: 打印batch日志
+
+        Returns:
+            返回模型训练后的损失值
+        """
+        train_epoch_loss = None
+        for _ in ProgressBar(range(epoch), desc='epoch'):
+            self.train_loss.reset_state()
+            self.val_loss.reset_state()
+            # train
+            for target, context in ProgressBar(self.train_ds, desc='train'):
+                self.train_step(target, context)
+                train_batch_loss = self.train_loss.result()
+                if verbose == 2:
+                    logger.info(f'\repoch: {epoch}\ttrain_batch_loss: {train_batch_loss}')
+            train_epoch_loss = self.train_loss.result()
+            if verbose > 0:
+                logger.info(f'\nepoch: {epoch}\ttrain_epoch_loss: {train_epoch_loss}\n')
+            # val
+            if self.val_ds is None:
+                continue
+            for target, context in ProgressBar(self.val_ds, desc='val'):
+                self.val_step(target, context)
+            if verbose > 0:
+                val_epoch_loss = self.val_loss.result()
+                logger.info(f'\nepoch: {epoch}\tval_epoch_loss: {val_epoch_loss}\n')
+        self.model.save(self.model_dir)
+        logger.info(f'模型保存在：{self.model_dir}\n')
+        return train_epoch_loss
+
+    @tf.function
+    def train_step(self, data: Union[Dict[str, tf.Tensor], tf.Tensor], label: Union[Dict[str, tf.Tensor], tf.Tensor]):
+        """
+        train one step
+
+        Args:
+            data: the input train data
+            label: the output train labels
+        """
+        with tf.GradientTape() as tape:
+            data = self.model(data)
+            loss = self.model.loss(data, label, training=True)
+        gradients = tape.gradient(loss, self.model.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
+        self.train_loss.update_state(loss)
+
+    @tf.function
+    def val_step(self, data: Union[Dict[str, tf.Tensor], tf.Tensor],
+                 label: Union[Dict[str, tf.Tensor], tf.Tensor]) -> None:
+        """
+        train one step
+
+        Args:
+            data: the input train data
+            label: the output train labels
+        """
+        data = self.model(data)
+        loss = self.model.loss(data, label, training=False)
+        self.val_loss.update_state(loss)

@@ -56,4 +56,7 @@ setuptools.setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
     python_requires='>=3.6',
+    package_data={
+        '': ['config/*.txt'],
+    }
 )

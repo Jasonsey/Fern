@@ -65,12 +65,13 @@ class Logging(object):
     def __repr__(self):
         return repr(self.__logger)
 
-    def add_stream_handler(self, level: Union[str, int, None] = None, **kwargs):
+    def add_stream_handler(self, level: Union[str, int, None] = None, terminator=None, **kwargs):
         """
         日志导出到终端中, 新的stream handler会覆盖旧的
 
         Args:
             level: 默认的level是比 DEBUG 还小的 0
+            terminator: 默认会在末尾添加\n换行符，可以通过这个参数修改换行符
             **kwargs: other file handle config
         """
         stream_handler = logging.StreamHandler(**kwargs)
@@ -82,13 +83,19 @@ class Logging(object):
             level = level
         else:
             level = 0
-
         stream_handler.setLevel(level)
 
-        # 避免重复添加handlers
-        handlers = [handler for handler in self.__logger.handlers if not isinstance(handler, logging.StreamHandler)]
-        handlers.append(stream_handler)
-        self.__logger.handlers = handlers
+        if terminator is not None:
+            stream_handler.terminator = terminator
+
+        # 避免重复添加handlers, 始终使用新的handle替换旧的handle
+        tmp = []
+        for handler in self.__logger.handlers:
+            if isinstance(handler, logging.StreamHandler):
+                tmp.append(stream_handler)
+            else:
+                tmp.append(handler)
+        self.__logger.handlers = tmp
 
     def add_file_handle(self, filename: Union[str, Path] = 'base.log', level: Union[str, int, None] = None, **kwargs):
         """

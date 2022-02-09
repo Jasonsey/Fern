@@ -6,8 +6,9 @@
 # =============================================================================
 """test data tools"""
 import numpy as np
+import pandas as pd
 
-from fern.data import FernSeries, FernDataFrame
+from fern.data import FernSeries, FernDataFrame, train_data_split
 
 
 class TestFernSeries(object):
@@ -64,3 +65,9 @@ class TestFernDataFrame(object):
     @staticmethod
     def square(x):
         return x ** 2
+
+
+def test_train_data_split():
+    df = pd.Series(range(100, 120))
+    df_a, _ = train_data_split(df, 0.2, random_state=42)
+    assert df_a.iloc[0] == 108

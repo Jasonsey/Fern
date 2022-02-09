@@ -13,11 +13,11 @@ from sklearn.model_selection import train_test_split
 
 
 def train_data_split(
-        data: pd.DataFrame,
+        data: Union[Iterable, pd.Series, pd.DataFrame],
         test_size: Union[int, float],
         max_test_size: Optional[int] = None,
         random_state: Union[int, np.random.RandomState, None] = None
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+) -> Tuple[Union[Iterable, pd.Series, pd.DataFrame], Union[Iterable, pd.Series, pd.DataFrame]]:
     """
     使用sklearn的方法分割数据集
 

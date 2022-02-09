@@ -4,180 +4,148 @@
 # Email: jason.m.lin@outlook.com
 #
 # =============================================================================
-"""pipelines tools"""
+"""存放部分模型现成的数据流水线功能"""
 from typing import *
+from pathlib import Path
+from collections import defaultdict
 
-import numpy as np
 import pandas as pd
-from sqlalchemy import create_engine
+import tensorflow as tf
 
-from fern.data import FernDataFrame
+from fern.data import read_words, train_data_split, str2word
 
 
-class FernDownloader(object):
-    def read_sql(self, url: str, sql: str, index: Optional[str] = None, drop: bool = False) -> FernDataFrame:
-        """
-        通过sql, 从数据库读取数据
+class BaseDataPipeline(object):
+    batch_size: Optional[int] = None
 
-        Args:
-            url: 用于连接数据库, 例如: 'mysql+pymysql://user:passwd@hostname/dbname?charset=utf8mb4'
-            sql: 读取数据库的sql语句
-            index: 如果提供, 会根据这个字段, 创建返回的dataframe的index列
-            drop: 默认不移除空白行
-
-        Returns:
-            从数据库中下载的原始数据
-        """
+    def get_dataset(self, training: bool) -> tf.data.Dataset:
         raise NotImplementedError
 
+    @property
+    def train_ds(self):
+        return self.get_dataset(training=True)
 
-class FernCleaner(object):
+    @property
+    def val_ds(self):
+        return self.get_dataset(training=False)
+
+
+class Word2VecDataPipeline(BaseDataPipeline):
+    """训练word2vec向量(skip-gram)，做了如下工作：
+
+    1. 通过输入的数据创建数据流水线
+    2. 实现停用词过滤
+    3. 实现分词
+    4. 实现大小写配置
+    5. 创建词库, 忽略词频<2的单词
+
     """
-    data cleaner
-    """
-    def clean(self, data: Union[pd.DataFrame, FernDataFrame]) -> FernDataFrame:
-        """
-        clean data main entry, 如果清洗数据过程中需要用到多进程，那么需要保证被调用函数是静态的
+    word2id: Optional[Dict] = None
+    unk_token = '[UNK]'
 
-        一般流程：
-            1. 清洗原始数据
-            2. 清洗label数据
+    def __init__(self,
+                 data: List[str],
+                 batch_size: int,
+                 stop_words: str = None,
+                 zh_segmentation: bool = True,
+                 lower: bool = True,
+                 win_size: int = 2,
+                 random_seed: Optional[int] = None,
+                 ):
+        """
+        Args:
+            data: 原始数据列表
+            batch_size: 批大小
+            stop_words: 停用词路径
+            zh_segmentation: 中文是否使用分词工具分词
+            lower: 是否忽略大小写
+            win_size: 生成(target, context)的窗口大小
+            random_seed: 随机种子，用于复现
+        """
+        self._data = pd.DataFrame({'source': data})
+        if lower:
+            self._data['source'] = self._data['source'].map(lambda x: x.lower())
+
+        if stop_words is None:
+            stop_words = Path(__file__).parent / 'config/stop_words.txt'
+        self.stop_words = read_words(stop_words)
+        self.word2id, self.id2word = self._build_vocab(zh_segmentation)
+        self.vocab_size = len(self.word2id)
+
+        # 分词，词转id，分数据集
+        self._data['tokens'] = self._data['source'].map(lambda x: self.tokenize(x, zh_segmentation))
+        self._data['ids'] = self._data['source'].map(self.token2id)
+        self.train_data, self.val_data = train_data_split(self._data, test_size=0.2, random_state=random_seed)
+
+        # 数据生成其他配置
+        self.win_size = win_size
+        self.batch_size = batch_size
+
+    def _build_vocab(self, zh_segmentation: bool):
+        """制作的词库按照词频从大到小排列, UNK放在最后一个字符"""
+        def map_func(sentence: str):
+            words = str2word(sentence, zh_segmentation)
+            for _word in words:
+                if _word in self.stop_words:
+                    continue
+                vocab[_word] += 1
+
+        vocab = defaultdict(int)
+        self._data['source'].map(map_func)
+        vocab = {word: value for word, value in vocab.items() if value > 1}
+        vocab = sorted(vocab, key=lambda key: vocab[key], reverse=True)
+        vocab = list(vocab) + [self.unk_token]
+        word2id = {word: idx for idx, word in enumerate(vocab)}
+        id2word = {idx: word for idx, word in enumerate(vocab)}
+        return word2id, id2word
+
+    def tokenize(self, sentence: str, zh_segmentation: bool) -> List[str]:
+        """把句子转化为token数据，如果不在词库中，那么会替换为UNK"""
+        assert self.word2id is not None
+        words = str2word(sentence, zh_segmentation)
+        for i in range(len(words)):
+            if words[i] not in self.word2id:
+                words[i] = self.unk_token
+        return words
+
+    def token2id(self, words: List[str]) -> List[int]:
+        """把词列表转化为token列表"""
+        ids = [self.word2id.get(word, self.word2id[self.unk_token]) for word in words]
+        return ids
+
+    def data_generator(self, data: pd.DataFrame):
+        """生成(target_id, context_id)"""
+        data = data.sample(frac=1)
+        for index, row in data.iterrows():
+            # 每行一个句子，根据win_size从句子中生成（target, context）
+            ids = row['ids']
+            for i in range(len(ids)):
+                index_min = max(i - self.win_size, 0)
+                index_max = min(i + self.win_size, len(ids) - 1)
+                for ii in range(index_min, index_max+1):
+                    if ii == i:
+                        continue
+                    yield ids[i], [ids[ii]]
+
+    def get_dataset(self, training: bool):
+        """
+        把生成器转化为tensorflow数据集
 
         Args:
-            data: source data frame
+            training: True返回训练数据集，如果是False返回测试数据集
 
         Returns:
-            cleaned data with columns, data_col and label_col
+            tensorflow数据集
         """
-        raise NotImplementedError
-
-    def clean_data(self, row: Union[pd.Series, dict]) -> Any:
-        """
-        convert input data function for pandas apply function
-
-        due to the limitation of parallel process, the function need to be static method
-
-        一般流程：
-            1. 关键数据截取
-            2. 特殊字符清理
-            3. 停用词移除(不在此处操作, 这个在tokenize中操作)
-
-        Args:
-            row: the input data row
-
-        Returns:
-            清理好的文本数据。通常不同文本段这件拼接使用空格，这样在下一步操作的时候，这个空格就会被直接移除
-        """
-        raise NotImplementedError
-
-    def clean_label(self, row: Union[pd.Series, dict]) -> Any:
-        """
-        clean label function for pandas apply function
-
-        一般流程：
-            1. 只做标签格式化操作，通常是大小写等简单操作
-
-        注意事项：
-            1. 如果不是必要可以不要做标签清理
-            2. 如果是单任务单标签可以整理成 label1 的数据格式
-            3. 如果是单任务多标签形式，那么可以整理成 [label1, label2]的数据格式
-            4. 如果是多任务形式，那么可以整理成 {'task1': [label1, label2], 'task2': [label1, label2]}的数据格式
-
-        Args:
-            row: find source label data
-
-        Returns:
-            cleaned label
-        """
-        raise NotImplementedError
-
-
-class FernTokenizer(object):
-    """
-    转换清洗完的数据为token列表格式，不涉及到pad和生成array的操作
-    """
-    def tokenize(self, data: Union[pd.DataFrame, FernDataFrame]) -> Union[pd.DataFrame, FernDataFrame]:
-        """
-        转化一个data col 和label col对应的数据为token格式，但是不做padding的操作
-
-        一般操作流程：
-            1. token data
-            2. token label
-            3. 保存数据
-
-        Args:
-            data: the data frame where the cleaned data is stored
-
-        Returns:
-            The transformed word id sequence
-        """
-        raise NotImplementedError
-
-    def tokenize_data(self, string: str) -> np.ndarray:
-        """
-        转化string文本为token列表格式
-
-        一般操作步骤：
-            1. 文本分词为词列表
-            2. 使用停用词库移除停用词
-            3. 词库中未出现的词, 转化为ukn token
-            2. 如果必要，可以添加特殊token到这个列表中
-            2. 使用word2id转化为token列表
-
-        Args:
-            string: 待转化文本
-
-        Returns:
-            The transformed word id sequence
-        """
-        raise NotImplementedError
-
-    def tokenize_label(self, label: Union[dict, list, tuple, str]) -> Union[dict, np.ndarray]:
-        """
-        转化label为id array格式
-
-        Args:
-            label: to be transform source label data
-
-        Returns:
-            如果是多任务，那么label格式是字典，此时返回数据也需要是字典；array对象
-        """
-        raise NotImplementedError
-
-
-class FernSplitter(object):
-    """split data into train data and val data"""
-    def __init__(self, rate_val: float, random_state: Optional[int] = None):
-        self.rate_val = rate_val
-        self.random_state = random_state
-
-    def split(self, data: Union[pd.DataFrame, FernDataFrame]) -> Union[pd.DataFrame, FernDataFrame]:
-        """
-        split function to split data
-
-        一般流程:
-            1. 分割数据集为训练和评估数据集 (一般测试数据集会在更早之前被分割出去)
-            2. 保存数据集
-
-        Args:
-            data: 待分割数据集
-        """
-        raise NotImplementedError
-
-
-class FernBalance(object):
-    """
-    Class for sample balance
-    """
-    def balance(self, data: Union[pd.DataFrame, FernDataFrame]) -> Union[pd.DataFrame, FernDataFrame]:
-        """
-        根据类别数量，平衡样本数量
-
-        一般流程：
-            1. 制作平衡好的数据集
-            2. 保存数据
-
-        Args:
-            data: 需要平衡的数据集
-        """
-        raise NotImplementedError
+        if training:
+            data = self.train_data
+        else:
+            data = self.val_data
+        target_id = tf.TensorSpec(shape=(), dtype=tf.int64)
+        context_id = tf.TensorSpec(shape=(1,), dtype=tf.int64)
+        output_signature = (target_id, context_id)
+        dataset = tf.data.Dataset.from_generator(
+            generator=lambda: self.data_generator(data),
+            output_signature=output_signature)
+        dataset = dataset.cache().shuffle(self.batch_size * 10000).batch(self.batch_size).prefetch(tf.data.AUTOTUNE)
+        return dataset

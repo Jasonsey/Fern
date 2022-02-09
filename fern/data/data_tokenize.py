@@ -24,11 +24,11 @@ SPECIAL_TOKEN = [
 
 def str2word(string: str, zh_segmentation=True) -> List[str]:
     """
-    分割字符串为词列表，支持的语言：中文、英文、数字、特殊符号（'-_.[]'），未支持的语言会被自动过滤
+    分割字符串为词列表，支持的语言：中文、英文、数字、特殊符号（"-_.'[]"），未支持的语言会被自动过滤
 
     操作顺序：
         1. 拆分中文和其他语言
-        2. 除了中文、英文、数字、特殊符号（'-_.[]'）外，都作为分词分界线
+        2. 除了中文、英文、数字、特殊符号（"-_.'[]"）外，都作为分词分界线
         3. 针对中文：使用jieba分词
         4. 针对英文、数字：直接合成
 
@@ -39,11 +39,15 @@ def str2word(string: str, zh_segmentation=True) -> List[str]:
     Returns:
         cleaned word list
     """
+    string = replace_punctuation(string, ' ')
+    string = re.sub(r'(\[)([A-Z]+?)(])', r' \1\2\3 ', string)  # 确保特殊token的安全: xxx[yyy]zzz -> xxx [yyy] zzz
     if zh_segmentation:
         string = re.sub(r'([\u4e00-\u9fa5]+)', r' \1 ', string)
-        string = re.sub(r'(\[)(.+?)(])', r' \1\2\3 ', string)    # 确保特殊token的安全: xxx[yyy]zzz -> xxx [yyy] zzz
+    else:
+        string = re.sub(r'([\u4e00-\u9fa5])', r' \1 ', string)
+    string_list = re.split(r"\s+", string)
 
-        string_list = re.split(r'[^a-zA-Z0-9\-_.\u4e00-\u9fa5\[\]]+', string)
+    if zh_segmentation:
         words = []
         for item in string_list:
             if not item:
@@ -54,9 +58,24 @@ def str2word(string: str, zh_segmentation=True) -> List[str]:
                 tmp = [item]
             words.extend(tmp)
     else:
-        string = re.sub(r'([\u4e00-\u9fa5])', r' \1 ', string)
-        words = re.split(r'[^a-zA-Z0-9\-_.\u4e00-\u9fa5\[\]]+', string)
+        words = re.split(r"\s+", string)
     return words
+
+
+def replace_punctuation(string: str, repl: str = ' '):
+    """
+    替换标点符号为指定的字符, 注意这部分不处理英文中括号和连词符("[]'’")，这个一般用于特殊token分界符和词缩写
+
+    Args:
+        string: 要被处理的原始字符串
+        repl: 标点符号要替换成的字符
+
+    Returns:
+        替换好的字符串
+    """
+    p = re.compile(r'[,./;\-=\\`!@#$%^&*()_+|~，。、；【】！￥…（）]')
+    string = p.sub(repl, string)
+    return string
 
 
 def generate_label_data(
