@@ -11,8 +11,12 @@ import pickle
 import pathlib
 
 import pandas as pd
+import pyarrow as pa
+import pyarrow.orc as orc
+from pyarrow import csv
+from smart_open import hdfs
 
-from fern.utils import check_path
+from fern.utils import check_path, HDFSPath, is_hdfs_path
 from fern.data import FernDataFrame
 
 
@@ -31,16 +35,45 @@ def save_to_csv(data: Union[pd.DataFrame, FernDataFrame], path: Union[str, pathl
     data.save(path)
 
 
-def load_from_csv(path: Union[str, pathlib.Path], index_col: str = None, eval_col: Optional[List[str]] = None):
+def read_csv(path: Union[str, pathlib.Path, HDFSPath], index_col: str = None, eval_col: Optional[List[str]] = None):
     """
-    load data from path
+    load data from path, support hdfs and local file path
 
     Args:
         path: path where data save
         index_col: 需要初始化的index 列
         eval_col: 需要恢复数据格式的数据列，读取的数据默认是string格式
     """
-    data = pd.read_csv(path)
+    if not is_hdfs_path(str(path)):
+        data = pd.read_csv(path)
+    else:
+        path = HDFSPath(path)
+        with hdfs.open(str(path), 'rb') as f:
+            data = csv.read_csv(f).to_pandas()
+
+    if index_col:
+        data = data.set_index(index_col)
+    if isinstance(eval_col, list):
+        for col in eval_col:
+            data.loc[:, col] = data[col].map(eval)
+    return data
+
+
+def read_orc(path: Union[str, pathlib.Path, HDFSPath], index_col: str = None, eval_col: Optional[List[str]] = None):
+    """
+    load data from path, support hdfs and local file path
+
+    Args:
+        path: path where data save
+        index_col: 需要初始化的index 列
+        eval_col: 需要恢复数据格式的数据列，读取的数据默认是string格式
+    """
+    customized_open = hdfs.open if 'hdfs' in str(path) else open
+    with customized_open(str(path), 'rb') as file_io:
+        byte_buffer = pa.BufferReader(file_io.read())
+    orc_file = orc.ORCFile(byte_buffer)
+    data = orc_file.read().to_pandas()
+
     if index_col:
         data = data.set_index(index_col)
     if isinstance(eval_col, list):

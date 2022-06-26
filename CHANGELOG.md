@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+## [1.3.0] - 2022-06-27
+### Added
+- 添加HDFS路径处理代码
+- 读取orc和csv的方法默认支持hdfs文件
+
 ## [1.2.1] - 2021-11-22
 ### Fixed
 - 确保代码兼容python3.6
@@ -200,7 +205,8 @@
 - Add README_ZH
 
 
-[Unreleased]: https://github.com/Jasonsey/Fern/compare/1.2.1...HEAD
+[Unreleased]: https://github.com/Jasonsey/Fern/compare/1.3.0...HEAD
+[1.3.0]: https://github.com/Jasonsey/Fern/compare/1.2.1...1.3.0
 [1.2.1]: https://github.com/Jasonsey/Fern/compare/1.2.0...1.2.1
 [1.2.0]: https://github.com/Jasonsey/Fern/compare/1.1.4...1.2.0
 [1.1.4]: https://github.com/Jasonsey/Fern/compare/1.1.3...1.1.4

@@ -53,7 +53,7 @@ class FernSeries(pd.Series):
 
 
 class FernDataFrame(pd.DataFrame):
-    """sub class of pandas.DataFrame with additional function"""
+    """subclass of pandas.DataFrame with additional function"""
 
     @property
     def _constructor_expanddim(self):
