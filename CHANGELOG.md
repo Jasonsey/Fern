@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+## [1.2.2] - 2022-11-26
+### Fixed
+- 修复The truth value of a DataFrame is ambiguous #9
+- 
+
 ## [1.2.1] - 2021-11-22
 ### Fixed
 - 确保代码兼容python3.6
@@ -200,7 +205,8 @@
 - Add README_ZH
 
 
-[Unreleased]: https://github.com/Jasonsey/Fern/compare/1.2.1...HEAD
+[Unreleased]: https://github.com/Jasonsey/Fern/compare/1.2.2...HEAD
+[1.2.2]: https://github.com/Jasonsey/Fern/compare/1.2.1...1.2.2
 [1.2.1]: https://github.com/Jasonsey/Fern/compare/1.2.0...1.2.1
 [1.2.0]: https://github.com/Jasonsey/Fern/compare/1.1.4...1.2.0
 [1.1.4]: https://github.com/Jasonsey/Fern/compare/1.1.3...1.1.4
