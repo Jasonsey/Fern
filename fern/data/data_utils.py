@@ -25,7 +25,7 @@ def save_to_csv(data: Union[pd.DataFrame, FernDataFrame], path: Union[str, pathl
         path: path where data save
     """
     check_path(path)
-    if not data:
+    if data.empty:
         raise ValueError('You should get source data before save')
     data = FernDataFrame(data)
     data.save(path)
