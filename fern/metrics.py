@@ -7,6 +7,7 @@
 """metric"""
 import tensorflow as tf
 from tensorflow.keras.metrics import Metric
+import tensorflow_addons as tfa
 
 
 class BinaryCategoricalAccuracy(Metric):
@@ -54,3 +55,12 @@ class BinaryCategoricalAccuracy(Metric):
         return mean result
         """
         return self.values / self.count
+
+
+class SparseF1Score(tfa.metrics.F1Score):
+    """支持macroF1, microF1; 只支持单分类输出"""
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        y_true = tf.squeeze(y_true, axis=-1)
+        y_true = tf.cast(y_true, dtype=tf.int64)
+        y_true = tf.one_hot(y_true, self.num_classes)
+        return super().update_state(y_true, y_pred, sample_weight)

@@ -1,9 +1,12 @@
 ## [Unreleased]
 
+## [1.3.0] - 2022-11-26
+### Added
+- 添加macroF1评估函数 #12
+
 ## [1.2.2] - 2022-11-26
 ### Fixed
 - 修复The truth value of a DataFrame is ambiguous #9
-- 
 
 ## [1.2.1] - 2021-11-22
 ### Fixed
@@ -205,7 +208,8 @@
 - Add README_ZH
 
 
-[Unreleased]: https://github.com/Jasonsey/Fern/compare/1.2.2...HEAD
+[Unreleased]: https://github.com/Jasonsey/Fern/compare/1.3.0...HEAD
+[1.3.0]: https://github.com/Jasonsey/Fern/compare/1.2.2...1.3.0
 [1.2.2]: https://github.com/Jasonsey/Fern/compare/1.2.1...1.2.2
 [1.2.1]: https://github.com/Jasonsey/Fern/compare/1.2.0...1.2.1
 [1.2.0]: https://github.com/Jasonsey/Fern/compare/1.1.4...1.2.0
