@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+## [1.4.0] - 2022-11-26
+### Added
+- 添加繁体-简体互相转换功能 #11
+- 添加中文词列表合并字符串功能 #13
+
 ## [1.3.0] - 2022-11-26
 ### Added
 - 添加macroF1评估函数 #12
@@ -208,7 +213,8 @@
 - Add README_ZH
 
 
-[Unreleased]: https://github.com/Jasonsey/Fern/compare/1.3.0...HEAD
+[Unreleased]: https://github.com/Jasonsey/Fern/compare/1.4.0...HEAD
+[1.4.0]: https://github.com/Jasonsey/Fern/compare/1.3.0...1.4.0
 [1.3.0]: https://github.com/Jasonsey/Fern/compare/1.2.2...1.3.0
 [1.2.2]: https://github.com/Jasonsey/Fern/compare/1.2.1...1.2.2
 [1.2.1]: https://github.com/Jasonsey/Fern/compare/1.2.0...1.2.1

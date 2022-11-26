@@ -7,7 +7,7 @@
 """test data tools"""
 import numpy as np
 
-from fern.data import FernSeries, FernDataFrame
+from fern.data import FernSeries, FernDataFrame, word2str, TSConvertor
 
 
 class TestFernSeries(object):
@@ -64,3 +64,28 @@ class TestFernDataFrame(object):
     @staticmethod
     def square(x):
         return x ** 2
+
+
+def test_word2str():
+    words = ['我', 'abc124', '是', '测试', 'def', 'gh', 'x_y']
+    string = word2str(words, zh_space=False)
+    assert string == '我abc124是测试def gh x_y'
+
+    string = word2str(words, zh_space=True)
+    assert string == '我 abc124 是 测试 def gh x_y'
+
+
+class TestTSConvertor(object):
+    @classmethod
+    def setup_class(cls):
+        cls.convertor = TSConvertor()
+        cls.t_string = '漢字'
+        cls.s_string = '汉字'
+
+    def test_t2s(self):
+        s_string = self.convertor.t2s(self.t_string)
+        assert s_string == self.s_string
+
+    def test_s2t(self):
+        t_string = self.convertor.s2t(self.s_string)
+        assert t_string == self.t_string

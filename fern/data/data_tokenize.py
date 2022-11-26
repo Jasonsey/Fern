@@ -59,6 +59,23 @@ def str2word(string: str, zh_segmentation=True) -> List[str]:
     return words
 
 
+def word2str(words: List[str], zh_space=False) -> str:
+    """合并单词列表为string
+
+    Args:
+        words: 待合并词列表
+        zh_space: True则在中文词之间添加空格，False则在中文词之间不添加空格
+
+    Returns:
+        合并后的string
+    """
+    string = ' '.join(words)
+    if zh_space:
+        return string
+    string = re.sub(r'\s*([\u4e00-\u9fa5])\s*', r'\1', string)
+    return string
+
+
 def generate_label_data(
         data: pd.DataFrame,
         label_col: str,
