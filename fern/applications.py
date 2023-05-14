@@ -118,5 +118,5 @@ class BertEncoder(tf.keras.layers.Layer):
         txt_tokenized = self.tokenize(task_logs)
         bert_input = self.bert_pack_inputs([txt_tokenized])
         bert_output = self.encoder(bert_input)['sequence_output']  # [task_size, seq_len, 768]
-        res = bert_output[:, 0, :]  # [task_size, 768]
+        res = tf.reduce_mean(bert_output, axis=1)  # [task_size, 768]
         return res

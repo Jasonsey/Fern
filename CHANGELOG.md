@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [1.4.1] - 2023-05-14
+### Added
+- BertEncoder输出使用mean输出而不再是cls输出
+
 ## [1.4.0] - 2022-11-26
 ### Added
 - 添加繁体-简体互相转换功能 #11
@@ -213,7 +217,8 @@
 - Add README_ZH
 
 
-[Unreleased]: https://github.com/Jasonsey/Fern/compare/1.4.0...HEAD
+[Unreleased]: https://github.com/Jasonsey/Fern/compare/1.4.1...HEAD
+[1.4.1]: https://github.com/Jasonsey/Fern/compare/1.4.0...1.4.1
 [1.4.0]: https://github.com/Jasonsey/Fern/compare/1.3.0...1.4.0
 [1.3.0]: https://github.com/Jasonsey/Fern/compare/1.2.2...1.3.0
 [1.2.2]: https://github.com/Jasonsey/Fern/compare/1.2.1...1.2.2
